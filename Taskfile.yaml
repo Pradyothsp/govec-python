@@ -1,0 +1,10 @@
+version: "3"
+
+tasks:
+  fmt:
+    desc: Format code with ruff
+    cmd: uv run python scripts/fmt.py
+
+  fmt-check:
+    desc: Check formatting and types (ruff + pyright)
+    cmd: uv run python scripts/fmt_check.py
