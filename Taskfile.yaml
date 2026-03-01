@@ -8,3 +8,13 @@ tasks:
   fmt-check:
     desc: Check formatting and types (ruff + pyright)
     cmd: uv run python scripts/fmt_check.py
+
+  test:e2e:
+    desc: Run e2e tests (requires govec server on localhost:8000)
+    aliases:
+      - test:e
+      - test:e2e:local
+    preconditions:
+      - sh: "curl -sf http://localhost:8000/health"
+        msg: "GoVec server is not running on localhost:8000"
+    cmd: uv run pytest tests/govec/e2e -v
