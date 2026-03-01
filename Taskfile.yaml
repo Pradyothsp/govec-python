@@ -1,13 +1,23 @@
 version: "3"
 
+
 tasks:
   fmt:
     desc: Format code with ruff
-    cmd: uv run python scripts/fmt.py
+    cmds:
+      - uv run ruff check --fix .
+      - uv run ruff format .
 
   fmt-check:
     desc: Check formatting and types (ruff + pyright)
-    cmd: uv run python scripts/fmt_check.py
+    cmds:
+      - uv run ruff check .
+      - uv run pyright
+      - uv run ruff format --check --diff .
+
+  server:health:
+    desc: Check GoVec server is running on localhost:8000
+    cmd: curl -sf http://localhost:8000/health
 
   test:e2e:
     desc: Run e2e tests (requires govec server on localhost:8000)
@@ -15,6 +25,6 @@ tasks:
       - test:e
       - test:e2e:local
     preconditions:
-      - sh: "curl -sf http://localhost:8000/health"
-        msg: "GoVec server is not running on localhost:8000"
+      - task server:health
+      - msg: "GoVec server is not running on localhost:8000"
     cmd: uv run pytest tests/govec/e2e -v
