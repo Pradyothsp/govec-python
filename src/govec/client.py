@@ -1,7 +1,9 @@
 from typing import Literal
 
+import httpx
+
+from govec.exceptions import GoVecConnectionError
 from govec.models import (
-    GoVecResponse,
     InfoResponse,
     InsertRequest,
     SparseVector,
@@ -37,23 +39,13 @@ class GoVecClient:
 
         # The Pre-Flight Handshake
         try:
-            self._server_config = self._transport.server_info()
+            server_config = self._transport.server_info()
+            self.dimensions = server_config.dimensions
 
-            if not self._server_config.success:
-                raise ConnectionError(
-                    self._server_config.error or "Server rejected the connection."
-                )
+        except httpx.HTTPError as e:
+            raise GoVecConnectionError("Failed to connect to the GoVec server.") from e
 
-            if self._server_config.data is None:
-                raise ConnectionError("Server returned no configuration data.")
-            self.dimensions = self._server_config.data.dimensions
-
-        except ConnectionError:
-            raise
-        except Exception:
-            raise ConnectionError("Failed to connect to the GoVec server.")
-
-    def info(self) -> GoVecResponse[InfoResponse | None]:
+    def info(self) -> InfoResponse:
         """
         Retrieve server information.
         """
@@ -79,4 +71,5 @@ class GoVecClient:
             id=id, vector=dense_vector, sparse_vector=sparse_vector, metadata=metadata
         )
 
-        return self._transport.insert(request).success
+        self._transport.insert(request)
+        return True

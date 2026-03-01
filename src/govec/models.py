@@ -1,16 +1,7 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Literal
 
 MAX_UINT32 = 4_294_967_295
-
-
-@dataclass
-class GoVecResponse[T]:
-    success: bool
-    data: T
-    error: str | None = None
 
 
 @dataclass
@@ -66,3 +57,18 @@ class InsertRequest:
 @dataclass
 class InsertResponse:
     status: str
+
+
+@dataclass
+class SearchRequest:
+    k: int = 50
+    filter: dict[str, str] | None = None
+    sparse_vector: SparseVector | None = None
+    vector: list[float] | None = None
+
+
+@dataclass
+class SearchResponse:
+    id: str
+    score: float
+    metadata: dict[str, str]

@@ -2,7 +2,14 @@ from dataclasses import asdict
 
 import httpx
 
-from govec.models import GoVecResponse, InfoResponse, InsertRequest, InsertResponse
+from govec.exceptions import GoVecAPIError
+from govec.models import (
+    InfoResponse,
+    InsertRequest,
+    InsertResponse,
+    SearchRequest,
+    SearchResponse,
+)
 
 from govec.transport.base import BaseTransport
 
@@ -21,35 +28,31 @@ class RESTTransport(BaseTransport):
         # Using a persistent client session for connection pooling (much faster!)
         self.client = httpx.Client(headers=self.headers, timeout=10.0)
 
-    def server_info(self) -> GoVecResponse[InfoResponse | None]:
+    def server_info(self) -> InfoResponse:
         response = self.client.get(f"{self.base_url}/info")
-
         response_json = response.json()
 
         if response.status_code != 200:
-            return GoVecResponse(
-                success=response_json["success"],
-                data=None,
-                error=response_json.get("error", ""),
-            )
+            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
 
-        return GoVecResponse(
-            success=response_json["success"], data=InfoResponse(**response_json["data"])
-        )
+        return InfoResponse(**response_json["data"])
 
-    def insert(self, request: InsertRequest) -> GoVecResponse[InsertResponse | None]:
+    def insert(self, request: InsertRequest) -> InsertResponse:
         response = self.client.post(f"{self.base_url}/vectors", json=asdict(request))
-
         response_json = response.json()
 
         if response.status_code != 201:
-            return GoVecResponse(
-                response_json["success"],
-                data=response_json["data"],
-                error=response_json["error"],
-            )
+            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
 
-        return GoVecResponse(
-            success=response_json["success"],
-            data=InsertResponse(**response_json["data"]),
+        return InsertResponse(**response_json["data"])
+
+    def search(self, request: SearchRequest) -> list[SearchResponse]:
+        response = self.client.post(
+            f"{self.base_url}/vectors/search", json=asdict(request)
         )
+        response_json = response.json()
+
+        if response.status_code != 200:
+            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
+
+        return [SearchResponse(**item) for item in response_json["data"]]
