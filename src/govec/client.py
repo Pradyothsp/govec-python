@@ -6,6 +6,8 @@ from govec.exceptions import GoVecConnectionError
 from govec.models import (
     InfoResponse,
     InsertRequest,
+    SearchRequest,
+    SearchResponse,
     SparseVector,
 )
 
@@ -41,6 +43,7 @@ class GoVecClient:
         try:
             server_config = self._transport.server_info()
             self.dimensions = server_config.dimensions
+            self.enable_mmap = server_config.enable_mmap
 
         except httpx.HTTPError as e:
             raise GoVecConnectionError("Failed to connect to the GoVec server.") from e
@@ -61,7 +64,7 @@ class GoVecClient:
         """
         Inserts a single dense vector into the database.
         """
-        if len(dense_vector) != self.dimensions:
+        if self.enable_mmap and len(dense_vector) != self.dimensions:
             raise ValueError(
                 f"Dimension mismatch: The GoVec server is configured for {self.dimensions} "
                 f"dimensions, but you provided a vector with {len(dense_vector)} dimensions."
@@ -73,3 +76,22 @@ class GoVecClient:
 
         self._transport.insert(request)
         return True
+
+    def search(
+        self,
+        dense_vector: list[float] | None = None,
+        sparse_vector: SparseVector | None = None,
+        k: int = 10,
+        filter: dict[str, str] | None = None,
+    ) -> list[SearchResponse]:
+        """
+        Search for the nearest vectors.
+        """
+        request = SearchRequest(
+            vector=dense_vector,
+            sparse_vector=sparse_vector,
+            k=k,
+            filter=filter,
+        )
+
+        return self._transport.search(request)

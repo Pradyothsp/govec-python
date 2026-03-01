@@ -20,6 +20,7 @@ class InfoResponse:
     distance_metric: DistanceMetric
     dimensions: int
     vector_count: int
+    enable_mmap: bool
 
 
 @dataclass
@@ -71,4 +72,4 @@ class SearchRequest:
 class SearchResponse:
     id: str
     score: float
-    metadata: dict[str, str]
+    meta: dict[str, str]
