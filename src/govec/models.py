@@ -73,3 +73,9 @@ class SearchResponse:
     id: str
     score: float
     meta: dict[str, str]
+
+
+@dataclass
+class DeleteResponse:
+    id: str
+    status: str

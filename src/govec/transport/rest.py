@@ -9,6 +9,7 @@ from govec.models import (
     InsertResponse,
     SearchRequest,
     SearchResponse,
+    DeleteResponse,
 )
 
 from govec.transport.base import BaseTransport
@@ -56,3 +57,12 @@ class RESTTransport(BaseTransport):
             raise GoVecAPIError(response.status_code, response_json.get("error", ""))
 
         return [SearchResponse(**item) for item in response_json["data"]]
+
+    def delete(self, id: str) -> DeleteResponse:
+        response = self.client.delete(f"{self.base_url}/vectors/{id}")
+        response_json = response.json()
+
+        if response.status_code != 200:
+            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
+
+        return DeleteResponse(**response_json["data"])

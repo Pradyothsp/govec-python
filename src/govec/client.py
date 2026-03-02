@@ -95,3 +95,14 @@ class GoVecClient:
         )
 
         return self._transport.search(request)
+
+    def delete(self, id: str) -> bool:
+        """
+        Deletes a vector by its ID.
+        """
+        response = self._transport.delete(id)
+
+        if response.id == id and response.status == "deleted":
+            return True
+        else:
+            return False
