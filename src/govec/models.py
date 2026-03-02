@@ -61,6 +61,18 @@ class InsertResponse:
 
 
 @dataclass
+class BatchInsertError:
+    id: str
+    error: str
+
+
+@dataclass
+class BatchInsertResponse:
+    inserted_count: int
+    errors: list[BatchInsertError]
+
+
+@dataclass
 class SearchRequest:
     k: int = 50
     filter: dict[str, str] | None = None

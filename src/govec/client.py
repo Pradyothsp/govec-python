@@ -4,6 +4,8 @@ import httpx
 
 from govec.exceptions import GoVecConnectionError
 from govec.models import (
+    BatchInsertError,
+    BatchInsertResponse,
     InfoResponse,
     InsertRequest,
     SearchRequest,
@@ -76,6 +78,29 @@ class GoVecClient:
 
         self._transport.insert(request)
         return True
+
+    def insert_many(
+        self, requests: list[InsertRequest], batch_size: int = 500
+    ) -> BatchInsertResponse:
+        """
+        Chunks a large list of vectors and inserts them in optimized batches.
+        Returns a BatchInsertResponse with the total inserted count and any per-vector errors.
+        """
+
+        if self.enable_mmap:
+            if bad := next((r for r in requests if len(r.vector) != self.dimensions), None):
+                raise ValueError(f"Vector {bad.id} has wrong dimensions.")
+
+        total_inserted = 0
+        all_errors: list[BatchInsertError] = []
+
+        for i in range(0, len(requests), batch_size):
+            batch = requests[i : i + batch_size]
+            result = self._transport.insert_batch(batch)
+            total_inserted += result.inserted_count
+            all_errors.extend(result.errors)
+
+        return BatchInsertResponse(inserted_count=total_inserted, errors=all_errors)
 
     def search(
         self,

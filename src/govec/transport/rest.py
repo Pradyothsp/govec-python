@@ -4,12 +4,14 @@ import httpx
 
 from govec.exceptions import GoVecAPIError
 from govec.models import (
+    BatchInsertError,
+    BatchInsertResponse,
+    DeleteResponse,
     InfoResponse,
     InsertRequest,
     InsertResponse,
     SearchRequest,
     SearchResponse,
-    DeleteResponse,
 )
 
 from govec.transport.base import BaseTransport
@@ -46,6 +48,22 @@ class RESTTransport(BaseTransport):
             raise GoVecAPIError(response.status_code, response_json.get("error", ""))
 
         return InsertResponse(**response_json["data"])
+
+    def insert_batch(self, requests: list[InsertRequest]) -> BatchInsertResponse:
+        response = self.client.post(
+            f"{self.base_url}/vectors/batch",
+            json={"vectors": [asdict(r) for r in requests]},
+        )
+        response_json = response.json()
+
+        if response.status_code != 200:
+            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
+
+        data = response_json["data"]
+        return BatchInsertResponse(
+            inserted_count=data["inserted_count"],
+            errors=[BatchInsertError(**e) for e in data.get("errors", [])],
+        )
 
     def search(self, request: SearchRequest) -> list[SearchResponse]:
         response = self.client.post(

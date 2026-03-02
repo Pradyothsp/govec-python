@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 
 from govec.models import (
+    BatchInsertResponse,
+    DeleteResponse,
     InfoResponse,
     InsertRequest,
     InsertResponse,
@@ -17,4 +19,10 @@ class BaseTransport(ABC):
     def insert(self, request: InsertRequest) -> InsertResponse: ...
 
     @abstractmethod
+    def insert_batch(self, requests: list[InsertRequest]) -> BatchInsertResponse: ...
+
+    @abstractmethod
     def search(self, request: SearchRequest) -> list[SearchResponse]: ...
+
+    @abstractmethod
+    def delete(self, id: str) -> DeleteResponse: ...
