@@ -6,6 +6,7 @@ from govec.exceptions import GoVecConnectionError
 from govec.models import (
     BatchInsertError,
     BatchInsertResponse,
+    GetByIdResponse,
     InfoResponse,
     InsertRequest,
     SearchRequest,
@@ -56,6 +57,12 @@ class GoVecClient:
         """
         return self._transport.server_info()
 
+    def get_by_id(self, id: str) -> GetByIdResponse | None:
+        """
+        Retrieve a vector by its ID.
+        """
+        return self._transport.get_by_id(id)
+
     def insert(
         self,
         id: str,
@@ -88,7 +95,9 @@ class GoVecClient:
         """
 
         if self.enable_mmap:
-            if bad := next((r for r in requests if len(r.vector) != self.dimensions), None):
+            if bad := next(
+                (r for r in requests if len(r.vector) != self.dimensions), None
+            ):
                 raise ValueError(f"Vector {bad.id} has wrong dimensions.")
 
         total_inserted = 0

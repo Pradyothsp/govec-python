@@ -7,11 +7,13 @@ from govec.models import (
     BatchInsertError,
     BatchInsertResponse,
     DeleteResponse,
+    GetByIdResponse,
     InfoResponse,
     InsertRequest,
     InsertResponse,
     SearchRequest,
     SearchResponse,
+    SparseVector,
 )
 
 from govec.transport.base import BaseTransport
@@ -39,6 +41,24 @@ class RESTTransport(BaseTransport):
             raise GoVecAPIError(response.status_code, response_json.get("error", ""))
 
         return InfoResponse(**response_json["data"])
+
+    def get_by_id(self, id: str) -> GetByIdResponse | None:
+        response = self.client.get(f"{self.base_url}/vectors/{id}")
+        response_json = response.json()
+
+        if response.status_code == 404:
+            return None
+
+        if response.status_code != 200:
+            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
+
+        data = response_json["data"]
+        return GetByIdResponse(
+            id=data["id"],
+            vector=data["vector"],
+            sparse_vector=SparseVector(**data["sparse_vector"]),
+            metadata=data.get("metadata"),
+        )
 
     def insert(self, request: InsertRequest) -> InsertResponse:
         response = self.client.post(f"{self.base_url}/vectors", json=asdict(request))

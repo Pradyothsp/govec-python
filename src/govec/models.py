@@ -44,6 +44,14 @@ class SparseVector:
 
 
 @dataclass
+class GetByIdResponse:
+    id: str
+    vector: list[float]
+    sparse_vector: SparseVector
+    metadata: dict[str, str] | None = None
+
+
+@dataclass
 class InsertRequest:
     id: str
     vector: list[float]
