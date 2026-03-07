@@ -62,8 +62,8 @@ class RESTTransport(BaseTransport):
 
         return FlushResponse(status=response_json["data"]["status"])
 
-    def get_by_id(self, id: str) -> GetByIdResponse | None:
-        response = self.client.get(f"{self.base_url}/vectors/{id}")
+    def get_by_id(self, vector_id: str) -> GetByIdResponse | None:
+        response = self.client.get(f"{self.base_url}/vectors/{vector_id}")
         response_json = response.json()
 
         if response.status_code == 404:
@@ -116,8 +116,8 @@ class RESTTransport(BaseTransport):
 
         return [SearchResponse(**item) for item in response_json["data"]]
 
-    def delete(self, id: str) -> DeleteResponse:
-        response = self.client.delete(f"{self.base_url}/vectors/{id}")
+    def delete(self, vector_id: str) -> DeleteResponse:
+        response = self.client.delete(f"{self.base_url}/vectors/{vector_id}")
         response_json = response.json()
 
         if response.status_code != 200:
