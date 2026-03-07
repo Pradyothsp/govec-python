@@ -14,6 +14,8 @@ from govec.models import (
     SearchRequest,
     SearchResponse,
     SparseVector,
+    GetStatsResponse,
+    FlushResponse,
 )
 
 from govec.transport.base import BaseTransport
@@ -41,6 +43,24 @@ class RESTTransport(BaseTransport):
             raise GoVecAPIError(response.status_code, response_json.get("error", ""))
 
         return InfoResponse(**response_json["data"])
+
+    def get_stats(self) -> GetStatsResponse:
+        response = self.client.get(f"{self.base_url}/stats")
+        response_json = response.json()
+
+        if response.status_code != 200:
+            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
+
+        return GetStatsResponse(vector_count=response_json["data"]["vector_count"])
+
+    def flush(self) -> FlushResponse:
+        response = self.client.post(f"{self.base_url}/admin/flush")
+        response_json = response.json()
+
+        if response.status_code != 200:
+            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
+
+        return FlushResponse(status=response_json["data"]["status"])
 
     def get_by_id(self, id: str) -> GetByIdResponse | None:
         response = self.client.get(f"{self.base_url}/vectors/{id}")

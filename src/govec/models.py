@@ -44,6 +44,16 @@ class SparseVector:
 
 
 @dataclass
+class GetStatsResponse:
+    vector_count: int
+
+
+@dataclass
+class FlushResponse:
+    status: str
+
+
+@dataclass
 class GetByIdResponse:
     id: str
     vector: list[float]

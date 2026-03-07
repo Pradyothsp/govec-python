@@ -12,6 +12,8 @@ from govec.models import (
     SearchRequest,
     SearchResponse,
     SparseVector,
+    GetStatsResponse,
+    FlushResponse,
 )
 
 Protocol = Literal["rest", "grpc"]
@@ -56,6 +58,18 @@ class GoVecClient:
         Retrieve server information.
         """
         return self._transport.server_info()
+
+    def get_stats(self) -> GetStatsResponse:
+        """
+        Retrieve collection statistics, such as the total number of vectors stored.
+        """
+        return self._transport.get_stats()
+
+    def flush(self) -> FlushResponse:
+        """
+        Forces the database to flush in-memory structures (like the HNSW graph) to disk.
+        """
+        return self._transport.flush()
 
     def get_by_id(self, vector_id: str) -> GetByIdResponse | None:
         """
