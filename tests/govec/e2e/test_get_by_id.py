@@ -14,7 +14,7 @@ def test_get_by_id(govec_e2e_client: GoVecClient):
     sparse_vector = SparseVector(indices=[0, 10, 42], values=[0.5, 0.3, 0.2])
 
     govec_e2e_client.insert(
-        id="test-get-by-id-001",
+        vector_id="test-get-by-id-001",
         dense_vector=dense_vector,
         sparse_vector=sparse_vector,
     )
@@ -40,7 +40,7 @@ def test_get_by_id_with_metadata(govec_e2e_client: GoVecClient):
     metadata = {"source": "test", "category": "e2e"}
 
     govec_e2e_client.insert(
-        id="test-get-by-id-meta-001",
+        vector_id="test-get-by-id-meta-001",
         dense_vector=dense_vector,
         sparse_vector=sparse_vector,
         metadata=metadata,

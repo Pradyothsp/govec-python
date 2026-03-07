@@ -19,7 +19,7 @@ def test_insert(govec_e2e_client: GoVecClient):
 
     # Act
     result = govec_e2e_client.insert(
-        id="test-insert-001",
+        vector_id="test-insert-001",
         dense_vector=dense_vector,
         sparse_vector=sparse_vector,
     )
@@ -67,7 +67,11 @@ def test_insert_many_with_error(govec_e2e_client: GoVecClient):
     ]
     # One vector with wrong dimensions — server should reject it
     requests.append(
-        InsertRequest(id="test-insert-many-err-bad", vector=[0.1, 0.2, 0.3], sparse_vector=sparse_vector)
+        InsertRequest(
+            id="test-insert-many-err-bad",
+            vector=[0.1, 0.2, 0.3],
+            sparse_vector=sparse_vector,
+        )
     )
 
     # Bypass client-side dimension check so the bad vector reaches the server

@@ -57,15 +57,15 @@ class GoVecClient:
         """
         return self._transport.server_info()
 
-    def get_by_id(self, id: str) -> GetByIdResponse | None:
+    def get_by_id(self, vector_id: str) -> GetByIdResponse | None:
         """
         Retrieve a vector by its ID.
         """
-        return self._transport.get_by_id(id)
+        return self._transport.get_by_id(vector_id)
 
     def insert(
         self,
-        id: str,
+        vector_id: str,
         dense_vector: list[float],
         sparse_vector: SparseVector,
         metadata: dict[str, str] | None = None,
@@ -80,7 +80,10 @@ class GoVecClient:
             )
 
         request = InsertRequest(
-            id=id, vector=dense_vector, sparse_vector=sparse_vector, metadata=metadata
+            id=vector_id,
+            vector=dense_vector,
+            sparse_vector=sparse_vector,
+            metadata=metadata,
         )
 
         self._transport.insert(request)
@@ -130,13 +133,13 @@ class GoVecClient:
 
         return self._transport.search(request)
 
-    def delete(self, id: str) -> bool:
+    def delete(self, vector_id: str) -> bool:
         """
         Deletes a vector by its ID.
         """
-        response = self._transport.delete(id)
+        response = self._transport.delete(vector_id)
 
-        if response.id == id and response.status == "deleted":
+        if response.id == vector_id and response.status == "deleted":
             return True
         else:
             return False

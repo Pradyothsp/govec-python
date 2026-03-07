@@ -13,13 +13,13 @@ def test_delete(govec_e2e_client: GoVecClient):
 
     # Arrange — insert a known vector
     govec_e2e_client.insert(
-        id="test-search-001",
+        vector_id="test-search-001",
         dense_vector=dense_vector,
         sparse_vector=sparse_vector,
     )
 
     # Act — search with the same vector (should be the closest match)
-    results = govec_e2e_client.delete(id="test-search-001")
+    results = govec_e2e_client.delete(vector_id="test-search-001")
 
     # Assert
     assert results is True

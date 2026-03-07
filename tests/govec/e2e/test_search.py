@@ -13,7 +13,7 @@ def test_search(govec_e2e_client: GoVecClient):
 
     # Arrange — insert a known vector
     govec_e2e_client.insert(
-        id="test-search-001",
+        vector_id="test-search-001",
         dense_vector=dense_vector,
         sparse_vector=sparse_vector,
     )
