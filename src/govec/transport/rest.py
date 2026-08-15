@@ -11,6 +11,7 @@ from govec.models import (
     InfoResponse,
     InsertRequest,
     InsertResponse,
+    ResetResponse,
     SearchRequest,
     SearchResponse,
     SparseVector,
@@ -61,6 +62,15 @@ class RESTTransport(BaseTransport):
             raise GoVecAPIError(response.status_code, response_json.get("error", ""))
 
         return FlushResponse(status=response_json["data"]["status"])
+
+    def reset(self) -> ResetResponse:
+        response = self.client.post(f"{self.base_url}/admin/reset")
+        response_json = response.json()
+
+        if response.status_code != 200:
+            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
+
+        return ResetResponse(status=response_json["data"]["status"])
 
     def get_by_id(self, vector_id: str) -> GetByIdResponse | None:
         response = self.client.get(f"{self.base_url}/vectors/{vector_id}")

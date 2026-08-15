@@ -9,6 +9,7 @@ from govec.models import (
     GetByIdResponse,
     InfoResponse,
     InsertRequest,
+    ResetResponse,
     SearchRequest,
     SearchResponse,
     SparseVector,
@@ -70,6 +71,13 @@ class GoVecClient:
         Forces the database to flush in-memory structures (like the HNSW graph) to disk.
         """
         return self._transport.flush()
+
+    def reset(self) -> ResetResponse:
+        """
+        Clears all vectors, ID mappings, and the WAL. Does not persist the cleared
+        state to disk -- call flush() afterward if the reset should survive a restart.
+        """
+        return self._transport.reset()
 
     def get_by_id(self, vector_id: str) -> GetByIdResponse | None:
         """

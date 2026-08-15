@@ -6,6 +6,7 @@ from govec.models import (
     InfoResponse,
     InsertRequest,
     InsertResponse,
+    ResetResponse,
     SearchRequest,
     SearchResponse,
     GetStatsResponse,
@@ -23,6 +24,9 @@ class BaseTransport(ABC):
 
     @abstractmethod
     def flush(self) -> FlushResponse: ...
+
+    @abstractmethod
+    def reset(self) -> ResetResponse: ...
 
     @abstractmethod
     def get_by_id(self, vector_id: str) -> GetByIdResponse | None: ...

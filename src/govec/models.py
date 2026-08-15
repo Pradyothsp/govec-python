@@ -54,6 +54,11 @@ class FlushResponse:
 
 
 @dataclass
+class ResetResponse:
+    status: str
+
+
+@dataclass
 class GetByIdResponse:
     id: str
     vector: list[float]
