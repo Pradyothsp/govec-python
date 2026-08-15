@@ -81,7 +81,7 @@ class GoVecClient:
         self,
         vector_id: str,
         dense_vector: list[float],
-        sparse_vector: SparseVector,
+        sparse_vector: SparseVector | None = None,
         metadata: dict[str, str] | None = None,
     ) -> bool:
         """

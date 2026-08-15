@@ -65,7 +65,7 @@ class GetByIdResponse:
 class InsertRequest:
     id: str
     vector: list[float]
-    sparse_vector: SparseVector
+    sparse_vector: SparseVector | None = None
     metadata: dict[str, str] | None = None
 
     def __post_init__(self):
