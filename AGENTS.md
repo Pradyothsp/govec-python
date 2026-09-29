@@ -13,7 +13,7 @@ The client (`GoVecClient`) supports inserting dense + sparse vectors, similarity
 ```bash
 uv sync # Install dependencies and set up environment
 task fmt # Format code
-task fmt-check # Check formatting and types (ruff + pyright)
+task fmt-check # Check formatting and types (ruff + ty)
 uv add <package> # Add a dependency
 uv build # Build the package
 task server:health # Check GoVec server is running (required before e2e tests)

@@ -1,0 +1,27 @@
+repos:
+  # Standard file hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '^src/govec/proto/'
+      - id: end-of-file-fixer
+        exclude: '^src/govec/proto/'
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+        exclude: '^src/govec/proto/'
+
+  # Delegates to the Taskfile so the hook and `task check` can never drift:
+  # one definition of what "checked" means (ruff check, ty check, ruff format).
+  # Tool versions come from uv.lock; proto/ exclusions live in pyproject.toml.
+  - repo: local
+    hooks:
+      - id: task-check
+        name: task check (ruff + ty + format)
+        language: system
+        entry: task check
+        types: [python]
+        pass_filenames: false

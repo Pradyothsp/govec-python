@@ -42,7 +42,9 @@ class GoVecClient:
 
             self._transport = RESTTransport(host, port, api_key, tls=tls)
 
-        elif self.protocol == "grpc":
+        else:
+            # protocol is Literal["rest", "grpc"], so this is the grpc branch.
+            # Testing `== "grpc"` here would be a statically-always-true check.
             raise NotImplementedError("gRPC transport is not implemented yet.")
 
         # The Pre-Flight Handshake

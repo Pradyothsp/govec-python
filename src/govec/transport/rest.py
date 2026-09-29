@@ -1,4 +1,5 @@
 from dataclasses import asdict
+from typing import override
 
 import httpx
 
@@ -36,6 +37,7 @@ class RESTTransport(BaseTransport):
         # Using a persistent client session for connection pooling (much faster!)
         self.client = httpx.Client(headers=self.headers, timeout=10.0)
 
+    @override
     def server_info(self) -> InfoResponse:
         response = self.client.get(f"{self.base_url}/info")
         response_json = response.json()
@@ -45,6 +47,7 @@ class RESTTransport(BaseTransport):
 
         return InfoResponse(**response_json["data"])
 
+    @override
     def get_stats(self) -> GetStatsResponse:
         response = self.client.get(f"{self.base_url}/stats")
         response_json = response.json()
@@ -54,6 +57,7 @@ class RESTTransport(BaseTransport):
 
         return GetStatsResponse(vector_count=response_json["data"]["vector_count"])
 
+    @override
     def flush(self) -> FlushResponse:
         response = self.client.post(f"{self.base_url}/admin/flush")
         response_json = response.json()
@@ -63,6 +67,7 @@ class RESTTransport(BaseTransport):
 
         return FlushResponse(status=response_json["data"]["status"])
 
+    @override
     def reset(self) -> ResetResponse:
         response = self.client.post(f"{self.base_url}/admin/reset")
         response_json = response.json()
@@ -72,6 +77,7 @@ class RESTTransport(BaseTransport):
 
         return ResetResponse(status=response_json["data"]["status"])
 
+    @override
     def get_by_id(self, vector_id: str) -> GetByIdResponse | None:
         response = self.client.get(f"{self.base_url}/vectors/{vector_id}")
         response_json = response.json()
@@ -90,6 +96,7 @@ class RESTTransport(BaseTransport):
             metadata=data.get("metadata"),
         )
 
+    @override
     def insert(self, request: InsertRequest) -> InsertResponse:
         response = self.client.post(f"{self.base_url}/vectors", json=asdict(request))
         response_json = response.json()
@@ -99,6 +106,7 @@ class RESTTransport(BaseTransport):
 
         return InsertResponse(**response_json["data"])
 
+    @override
     def insert_batch(self, requests: list[InsertRequest]) -> BatchInsertResponse:
         response = self.client.post(
             f"{self.base_url}/vectors/batch",
@@ -115,6 +123,7 @@ class RESTTransport(BaseTransport):
             errors=[BatchInsertError(**e) for e in data.get("errors", [])],
         )
 
+    @override
     def search(self, request: SearchRequest) -> list[SearchResponse]:
         response = self.client.post(
             f"{self.base_url}/vectors/search", json=asdict(request)
@@ -126,6 +135,7 @@ class RESTTransport(BaseTransport):
 
         return [SearchResponse(**item) for item in response_json["data"]]
 
+    @override
     def delete(self, vector_id: str) -> DeleteResponse:
         response = self.client.delete(f"{self.base_url}/vectors/{vector_id}")
         response_json = response.json()

@@ -8,11 +8,14 @@ tasks:
       - uv run ruff check --fix .
       - uv run ruff format .
 
-  fmt-check:
-    desc: Check formatting and types (ruff + pyright)
+  fmt:check:
+    desc: Check formatting and types (ruff + ty)
+    aliases:
+      - check
+      - fmt-check
     cmds:
       - uv run ruff check .
-      - uv run pyright
+      - uv run ty check
       - uv run ruff format --check --diff .
 
   server:health:

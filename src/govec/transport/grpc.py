@@ -1,3 +1,5 @@
+from typing import override
+
 from govec.models import (
     InfoResponse,
     InsertRequest,
@@ -7,10 +9,18 @@ from govec.models import (
 )
 from govec.transport.base import BaseTransport
 
+_NOT_IMPLEMENTED = "gRPC transport is not implemented yet."
+
 
 class GRPCTransport(BaseTransport):
-    def server_info(self) -> InfoResponse: ...
+    @override
+    def server_info(self) -> InfoResponse:
+        raise NotImplementedError(_NOT_IMPLEMENTED)
 
-    def insert(self, request: InsertRequest) -> InsertResponse: ...
+    @override
+    def insert(self, request: InsertRequest) -> InsertResponse:
+        raise NotImplementedError(_NOT_IMPLEMENTED)
 
-    def search(self, request: SearchRequest) -> list[SearchResponse]: ...
+    @override
+    def search(self, request: SearchRequest) -> list[SearchResponse]:
+        raise NotImplementedError(_NOT_IMPLEMENTED)
