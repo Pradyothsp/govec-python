@@ -12,10 +12,14 @@ from govec.models import (
     GetStatsResponse,
     FlushResponse,
     GetByIdResponse,
+    HealthResponse,
 )
 
 
 class BaseTransport(ABC):
+    @abstractmethod
+    def health(self) -> HealthResponse: ...
+
     @abstractmethod
     def server_info(self) -> InfoResponse: ...
 

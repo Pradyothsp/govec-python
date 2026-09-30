@@ -18,6 +18,7 @@ from govec.models import (
     SparseVector,
     GetStatsResponse,
     FlushResponse,
+    HealthResponse,
 )
 
 from govec.transport.base import BaseTransport
@@ -28,7 +29,8 @@ class RESTTransport(BaseTransport):
         self, host: str, port: int, api_key: str | None = None, tls: bool = True
     ):
         scheme = "https" if tls else "http"
-        self.base_url = f"{scheme}://{host}:{port}/api/v1"
+        self.root_url = f"{scheme}://{host}:{port}"
+        self.base_url = f"{self.root_url}/api/v1"
         self.headers = {"Content-Type": "application/json"}
 
         if api_key:
@@ -36,6 +38,17 @@ class RESTTransport(BaseTransport):
 
         # Using a persistent client session for connection pooling (much faster!)
         self.client = httpx.Client(headers=self.headers, timeout=10.0)
+
+    @override
+    def health(self) -> HealthResponse:
+        # /health sits at the root, not under /api/v1 like everything else.
+        response = self.client.get(f"{self.root_url}/health")
+        response_json = response.json()
+
+        if response.status_code != 200:
+            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
+
+        return HealthResponse(status=response_json["data"]["status"])
 
     @override
     def server_info(self) -> InfoResponse:
