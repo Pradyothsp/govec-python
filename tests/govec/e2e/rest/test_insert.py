@@ -4,14 +4,13 @@ import pytest
 
 from govec.client import GoVecClient
 from govec.models import InsertRequest, SparseVector
+from tests.govec.e2e.conftest import E2E_DIMENSIONS
 
 
 @pytest.mark.e2e
-def test_insert(govec_e2e_client: GoVecClient):
+def test_insert__dense_and_sparse_vector__returns_true(govec_e2e_client: GoVecClient):
     # Arrange
-    dims = govec_e2e_client.dimensions
-
-    dense_vector = [random.random() for _ in range(dims)]
+    dense_vector = [random.random() for _ in range(E2E_DIMENSIONS)]
     sparse_vector = SparseVector(
         indices=[0, 10, 42],
         values=[0.5, 0.3, 0.2],
@@ -29,15 +28,16 @@ def test_insert(govec_e2e_client: GoVecClient):
 
 
 @pytest.mark.e2e
-def test_insert_many(govec_e2e_client: GoVecClient):
+def test_insert_many__batch_of_vectors__inserts_all_without_errors(
+    govec_e2e_client: GoVecClient,
+):
     # Arrange
-    dims = govec_e2e_client.dimensions
     sparse_vector = SparseVector(indices=[0, 10, 42], values=[0.5, 0.3, 0.2])
 
     requests = [
         InsertRequest(
             id=f"test-insert-many-{i:03}",
-            vector=[random.random() for _ in range(dims)],
+            vector=[random.random() for _ in range(E2E_DIMENSIONS)],
             sparse_vector=sparse_vector,
         )
         for i in range(10)
@@ -52,15 +52,16 @@ def test_insert_many(govec_e2e_client: GoVecClient):
 
 
 @pytest.mark.e2e
-def test_insert_many_with_error(govec_e2e_client: GoVecClient):
+def test_insert_many__one_vector_has_wrong_width__reports_only_that_one(
+    govec_e2e_client: GoVecClient,
+):
     # Arrange
-    dims = govec_e2e_client.dimensions
     sparse_vector = SparseVector(indices=[0, 10, 42], values=[0.5, 0.3, 0.2])
 
     requests = [
         InsertRequest(
             id=f"test-insert-many-err-{i:03}",
-            vector=[random.random() for _ in range(dims)],
+            vector=[random.random() for _ in range(E2E_DIMENSIONS)],
             sparse_vector=sparse_vector,
         )
         for i in range(9)

@@ -7,7 +7,9 @@ from govec.models import SparseVector
 
 
 @pytest.mark.e2e
-def test_search(govec_e2e_client: GoVecClient):
+def test_search__exact_query_vector__returns_that_vector_first(
+    govec_e2e_client: GoVecClient,
+):
     dense_vector = [random.random() for _ in range(1536)]
     sparse_vector = SparseVector(indices=[0, 10, 42], values=[0.5, 0.3, 0.2])
 

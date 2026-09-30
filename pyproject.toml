@@ -8,14 +8,18 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "grpcio>=1.60.0",
     "httpx>=0.28.1",
+    "protobuf>=4.25.0",
 ]
 
 [dependency-groups]
 dev = [
+    "grpcio-tools>=1.60.0",
     "pre-commit>=4.3.0",
     "ruff>=0.12.9",
     "ty>=0.0.84",
+    "types-protobuf>=7.35.1.20260906",
 ]
 test = [
     "pytest>=9.0.2",
@@ -31,6 +35,14 @@ testpaths = ["tests"]
 markers = [
     "e2e: end-to-end tests requiring a running server",
 ]
+# Registering the marker above only silences the unknown-marker warning -- it
+# does not deselect anything. Without this, a bare `pytest` tries to reach
+# localhost and errors out on every e2e test. The e2e tasks pass their own
+# `-m e2e`, which wins because the command line is applied after addopts.
+addopts = ["-m", "not e2e"]
+
+[tool.ruff]
+extend-exclude = ["src/govec/proto"]
 
 [tool.ty.rules]
 all = "error"
@@ -41,6 +53,7 @@ strict-generic-narrowing = true
 
 [tool.ty.src]
 include = ["src", "tests"]
+exclude = ["src/govec/proto"]
 
 [tool.ty.terminal]
 error-on-warning = true

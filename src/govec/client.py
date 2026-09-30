@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal, assert_never
 
 import httpx
 
@@ -15,6 +15,7 @@ from govec.models import (
     SparseVector,
     GetStatsResponse,
     FlushResponse,
+    HealthResponse,
 )
 
 Protocol = Literal["rest", "grpc"]
@@ -42,10 +43,13 @@ class GoVecClient:
 
             self._transport = RESTTransport(host, port, api_key, tls=tls)
 
+        elif self.protocol == "grpc":
+            from govec.transport.grpc import GRPCTransport
+
+            self._transport = GRPCTransport(host, port, api_key, tls=tls)
+
         else:
-            # protocol is Literal["rest", "grpc"], so this is the grpc branch.
-            # Testing `== "grpc"` here would be a statically-always-true check.
-            raise NotImplementedError("gRPC transport is not implemented yet.")
+            assert_never(self.protocol)
 
         # The Pre-Flight Handshake
         try:
@@ -55,6 +59,12 @@ class GoVecClient:
 
         except httpx.HTTPError as e:
             raise GoVecConnectionError("Failed to connect to the GoVec server.") from e
+
+    def health(self) -> HealthResponse:
+        """
+        Check that the server is reachable and serving.
+        """
+        return self._transport.health()
 
     def info(self) -> InfoResponse:
         """
@@ -92,7 +102,7 @@ class GoVecClient:
         vector_id: str,
         dense_vector: list[float],
         sparse_vector: SparseVector | None = None,
-        metadata: dict[str, str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> bool:
         """
         Inserts a single dense vector into the database.
@@ -143,7 +153,7 @@ class GoVecClient:
         dense_vector: list[float] | None = None,
         sparse_vector: SparseVector | None = None,
         k: int = 10,
-        filter: dict[str, str] | None = None,
+        filter: dict[str, Any] | None = None,
     ) -> list[SearchResponse]:
         """
         Search for the nearest vectors.
@@ -163,7 +173,7 @@ class GoVecClient:
         """
         response = self._transport.delete(vector_id)
 
-        if response.id == vector_id and response.status == "deleted":
+        if response.id == vector_id and response.status in ("deleted", "ok"):
             return True
         else:
             return False

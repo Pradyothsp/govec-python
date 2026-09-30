@@ -8,6 +8,11 @@ tasks:
       - uv run ruff check --fix .
       - uv run ruff format .
 
+  proto:gen:
+    desc: Generate Python protobuf and gRPC stubs
+    cmds:
+      - uv run python -m grpc_tools.protoc -Isrc --python_out=src --grpc_python_out=src --pyi_out=src src/govec/proto/govec.proto
+
   fmt:check:
     desc: Check formatting and types (ruff + ty)
     aliases:
@@ -18,16 +23,51 @@ tasks:
       - uv run ty check
       - uv run ruff format --check --diff .
 
+  test:
+    desc: Run unit tests (no server required)
+    aliases:
+      - test:unit
+    cmd: uv run pytest
+
   server:health:
     desc: Check GoVec server is running on localhost:8000
     cmd: curl -sf http://localhost:8000/health
 
+  grpc:health:
+    desc: Check the GoVec gRPC server is listening on localhost:50051
+    cmd: nc -z localhost 50051
+
+  # The two aggregates below just chain the leaf tasks -- each leaf owns the
+  # precondition for the server it needs, so there is one place to change it.
   test:e2e:
-    desc: Run e2e tests (requires govec server on localhost:8000)
+    desc: Run all e2e tests, REST and gRPC
     aliases:
       - test:e
       - test:e2e:local
+    cmds:
+      - task: test:e2e:rest
+      - task: test:e2e:grpc
+
+  test:all:
+    desc: Run every test, unit and e2e
+    cmds:
+      - task: test
+      - task: test:e2e
+
+  test:e2e:rest:
+    desc: Run REST e2e tests only (requires govec server on localhost:8000)
+    aliases:
+      - test:rest
     preconditions:
-      - task server:health
-      - msg: "GoVec server is not running on localhost:8000"
-    cmd: uv run pytest tests/govec/e2e -v
+      - sh: curl -sf http://localhost:8000/health
+        msg: "GoVec server is not running on localhost:8000"
+    cmd: uv run pytest tests/govec/e2e/rest -m e2e -v
+
+  test:e2e:grpc:
+    desc: Run gRPC e2e tests only (requires govec with GOVEC_GRPC_ENABLED=true on :50051)
+    aliases:
+      - test:grpc
+    preconditions:
+      - sh: nc -z localhost 50051
+        msg: "GoVec gRPC server is not listening on localhost:50051 (set GOVEC_GRPC_ENABLED=true)"
+    cmd: uv run pytest tests/govec/e2e/grpc -m e2e -v

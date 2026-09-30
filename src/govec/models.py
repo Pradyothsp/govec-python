@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
-MAX_UINT32 = 4_294_967_295
+MAX_UINT32 = 4_294_967_295  # (2³² - 1)
 
 
 @dataclass
@@ -54,6 +54,11 @@ class FlushResponse:
 
 
 @dataclass
+class HealthResponse:
+    status: str
+
+
+@dataclass
 class ResetResponse:
     status: str
 
@@ -63,7 +68,7 @@ class GetByIdResponse:
     id: str
     vector: list[float]
     sparse_vector: SparseVector
-    metadata: dict[str, str] | None = None
+    metadata: dict[str, Any] | None = None
 
 
 @dataclass
@@ -71,7 +76,7 @@ class InsertRequest:
     id: str
     vector: list[float]
     sparse_vector: SparseVector | None = None
-    metadata: dict[str, str] | None = None
+    metadata: dict[str, Any] | None = None
 
     def __post_init__(self):
         if not self.id:
@@ -98,7 +103,7 @@ class BatchInsertResponse:
 @dataclass
 class SearchRequest:
     k: int = 50
-    filter: dict[str, str] | None = None
+    filter: dict[str, Any] | None = None
     sparse_vector: SparseVector | None = None
     vector: list[float] | None = None
 
@@ -107,7 +112,7 @@ class SearchRequest:
 class SearchResponse:
     id: str
     score: float
-    meta: dict[str, str]
+    meta: dict[str, Any]
 
 
 @dataclass
