@@ -15,9 +15,10 @@ from govec.models import InsertRequest
 # configured engine.dimensions reports 0 until its first insert. Tests that
 # built vectors from it were producing *empty* vectors and passing vacuously.
 #
-# Both suites must also agree on this number. They share one server, gRPC has
-# no reset(), and the server rejects a vector whose width differs from the
-# index's -- so a disagreement would fail whichever suite ran second.
+# Both suites must also agree on this number. They share one server and the
+# server rejects a vector whose width differs from the index's, so a
+# disagreement would fail whichever suite ran second. Reset does not help:
+# Clear() empties the store but leaves the learned width in place.
 E2E_DIMENSIONS = 1536
 
 
@@ -49,8 +50,9 @@ def build_insert_request(
 ) -> Callable[..., InsertRequest]:
     """Builds an InsertRequest with a unique id, so tests stay independent.
 
-    gRPC has no reset(), so the server's state persists across the whole
-    session -- ids must not collide between tests.
+    Both suites share one server for the whole session, and the gRPC suite now
+    resets it mid-run -- so every test must insert the data it asserts on
+    rather than relying on anything a previous test left behind.
     """
 
     def _build(

@@ -102,10 +102,22 @@ class RESTTransport(BaseTransport):
             raise GoVecAPIError(response.status_code, response_json.get("error", ""))
 
         data = response_json["data"]
+
+        # The server always emits the sparse_vector key -- Go's `omitempty` has
+        # no effect on a struct -- so a dense-only record arrives as
+        # {"indices": null, "values": null}. Constructing a SparseVector from
+        # that raises, so treat it as the absence it is.
+        sparse = data.get("sparse_vector") or {}
+        sparse_vector = (
+            SparseVector(indices=sparse["indices"], values=sparse["values"])
+            if sparse.get("indices") and sparse.get("values")
+            else None
+        )
+
         return GetByIdResponse(
             id=data["id"],
             vector=data["vector"],
-            sparse_vector=SparseVector(**data["sparse_vector"]),
+            sparse_vector=sparse_vector,
             metadata=data.get("metadata"),
         )
 

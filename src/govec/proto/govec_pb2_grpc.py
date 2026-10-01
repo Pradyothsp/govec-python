@@ -54,6 +54,11 @@ class GoVecServiceStub:
                 request_serializer=govec_dot_proto_dot_govec__pb2.DeleteRequest.SerializeToString,
                 response_deserializer=govec_dot_proto_dot_govec__pb2.DeleteResponse.FromString,
                 _registered_method=True)
+        self.GetByID = channel.unary_unary(
+                '/govec.v1.GoVecService/GetByID',
+                request_serializer=govec_dot_proto_dot_govec__pb2.GetByIDRequest.SerializeToString,
+                response_deserializer=govec_dot_proto_dot_govec__pb2.GetByIDResponse.FromString,
+                _registered_method=True)
         self.Stats = channel.unary_unary(
                 '/govec.v1.GoVecService/Stats',
                 request_serializer=govec_dot_proto_dot_govec__pb2.StatsRequest.SerializeToString,
@@ -68,6 +73,11 @@ class GoVecServiceStub:
                 '/govec.v1.GoVecService/Flush',
                 request_serializer=govec_dot_proto_dot_govec__pb2.FlushRequest.SerializeToString,
                 response_deserializer=govec_dot_proto_dot_govec__pb2.FlushResponse.FromString,
+                _registered_method=True)
+        self.Reset = channel.unary_unary(
+                '/govec.v1.GoVecService/Reset',
+                request_serializer=govec_dot_proto_dot_govec__pb2.ResetRequest.SerializeToString,
+                response_deserializer=govec_dot_proto_dot_govec__pb2.ResetResponse.FromString,
                 _registered_method=True)
         self.Health = channel.unary_unary(
                 '/govec.v1.GoVecService/Health',
@@ -103,6 +113,12 @@ class GoVecServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetByID(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Stats(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -116,6 +132,12 @@ class GoVecServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def Flush(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Reset(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -150,6 +172,11 @@ def add_GoVecServiceServicer_to_server(servicer, server):
                     request_deserializer=govec_dot_proto_dot_govec__pb2.DeleteRequest.FromString,
                     response_serializer=govec_dot_proto_dot_govec__pb2.DeleteResponse.SerializeToString,
             ),
+            'GetByID': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetByID,
+                    request_deserializer=govec_dot_proto_dot_govec__pb2.GetByIDRequest.FromString,
+                    response_serializer=govec_dot_proto_dot_govec__pb2.GetByIDResponse.SerializeToString,
+            ),
             'Stats': grpc.unary_unary_rpc_method_handler(
                     servicer.Stats,
                     request_deserializer=govec_dot_proto_dot_govec__pb2.StatsRequest.FromString,
@@ -164,6 +191,11 @@ def add_GoVecServiceServicer_to_server(servicer, server):
                     servicer.Flush,
                     request_deserializer=govec_dot_proto_dot_govec__pb2.FlushRequest.FromString,
                     response_serializer=govec_dot_proto_dot_govec__pb2.FlushResponse.SerializeToString,
+            ),
+            'Reset': grpc.unary_unary_rpc_method_handler(
+                    servicer.Reset,
+                    request_deserializer=govec_dot_proto_dot_govec__pb2.ResetRequest.FromString,
+                    response_serializer=govec_dot_proto_dot_govec__pb2.ResetResponse.SerializeToString,
             ),
             'Health': grpc.unary_unary_rpc_method_handler(
                     servicer.Health,
@@ -290,6 +322,33 @@ class GoVecService:
             _registered_method=True)
 
     @staticmethod
+    def GetByID(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/govec.v1.GoVecService/GetByID',
+            govec_dot_proto_dot_govec__pb2.GetByIDRequest.SerializeToString,
+            govec_dot_proto_dot_govec__pb2.GetByIDResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def Stats(request,
             target,
             options=(),
@@ -360,6 +419,33 @@ class GoVecService:
             '/govec.v1.GoVecService/Flush',
             govec_dot_proto_dot_govec__pb2.FlushRequest.SerializeToString,
             govec_dot_proto_dot_govec__pb2.FlushResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Reset(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/govec.v1.GoVecService/Reset',
+            govec_dot_proto_dot_govec__pb2.ResetRequest.SerializeToString,
+            govec_dot_proto_dot_govec__pb2.ResetResponse.FromString,
             options,
             channel_credentials,
             insecure,

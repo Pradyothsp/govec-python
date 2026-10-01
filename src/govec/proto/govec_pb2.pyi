@@ -112,6 +112,31 @@ class DeleteResponse(_message.Message):
     id: str
     def __init__(self, status: _Optional[str] = ..., id: _Optional[str] = ...) -> None: ...
 
+class GetByIDRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class GetByIDResponse(_message.Message):
+    __slots__ = ("id", "vector", "sparse", "metadata")
+    class MetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _struct_pb2.Value
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...) -> None: ...
+    ID_FIELD_NUMBER: _ClassVar[int]
+    VECTOR_FIELD_NUMBER: _ClassVar[int]
+    SPARSE_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    vector: _containers.RepeatedScalarFieldContainer[float]
+    sparse: SparseVector
+    metadata: _containers.MessageMap[str, _struct_pb2.Value]
+    def __init__(self, id: _Optional[str] = ..., vector: _Optional[_Iterable[float]] = ..., sparse: _Optional[_Union[SparseVector, _Mapping]] = ..., metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...) -> None: ...
+
 class StatsRequest(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
@@ -147,6 +172,16 @@ class FlushRequest(_message.Message):
     def __init__(self) -> None: ...
 
 class FlushResponse(_message.Message):
+    __slots__ = ("status",)
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    status: str
+    def __init__(self, status: _Optional[str] = ...) -> None: ...
+
+class ResetRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ResetResponse(_message.Message):
     __slots__ = ("status",)
     STATUS_FIELD_NUMBER: _ClassVar[int]
     status: str

@@ -59,6 +59,28 @@ def test_get_by_id__vector_has_metadata__returns_the_metadata(
 
 
 @pytest.mark.e2e
+def test_get_by_id__dense_only_vector__returns_no_sparse_component(
+    govec_e2e_client: GoVecClient,
+):
+    # Arrange -- the server always emits a sparse_vector key, so a dense-only
+    # record arrives as {"indices": null, "values": null}. Building a
+    # SparseVector from that raises, which used to make get_by_id fail on
+    # every vector inserted without a sparse component.
+    dense_vector = [random.random() for _ in range(E2E_DIMENSIONS)]
+    govec_e2e_client.insert(
+        vector_id="test-get-by-id-dense-only",
+        dense_vector=dense_vector,
+    )
+
+    # Act
+    result = govec_e2e_client.get_by_id("test-get-by-id-dense-only")
+
+    # Assert
+    assert isinstance(result, GetByIdResponse)
+    assert result.sparse_vector is None
+
+
+@pytest.mark.e2e
 def test_get_by_id__missing_vector__returns_none(govec_e2e_client: GoVecClient):
     # Act
     result = govec_e2e_client.get_by_id("non-existent-id-xyz")

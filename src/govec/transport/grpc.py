@@ -19,6 +19,7 @@ from govec.models import (
     ResetResponse,
     SearchRequest,
     SearchResponse,
+    SparseVector,
 )
 from govec.proto import govec_pb2, govec_pb2_grpc
 from govec.transport.convert import from_proto_value, to_proto_value
@@ -137,14 +138,55 @@ class GRPCTransport(BaseTransport):
 
     @override
     def reset(self) -> ResetResponse:
-        raise NotImplementedError(
-            "Reset is not supported over gRPC in the GoVec server."
-        )
+        try:
+            resp = cast(
+                govec_pb2.ResetResponse,
+                self.stub.Reset(
+                    govec_pb2.ResetRequest(), metadata=self.metadata, timeout=10.0
+                ),
+            )
+        except grpc.RpcError as e:
+            self._handle_rpc_error(e)
+            raise
+
+        return ResetResponse(status=resp.status)
 
     @override
     def get_by_id(self, vector_id: str) -> GetByIdResponse | None:
-        raise NotImplementedError(
-            "GetById is not supported over gRPC in the GoVec server."
+        try:
+            resp = cast(
+                govec_pb2.GetByIDResponse,
+                self.stub.GetByID(
+                    govec_pb2.GetByIDRequest(id=vector_id),
+                    metadata=self.metadata,
+                    timeout=10.0,
+                ),
+            )
+        except grpc.RpcError as e:
+            # REST returns None for a missing vector rather than raising, and
+            # the two transports have to behave the same way behind the client.
+            if isinstance(e, grpc.Call) and e.code() == grpc.StatusCode.NOT_FOUND:
+                return None
+            self._handle_rpc_error(e)
+            raise
+
+        # The server omits the sparse message entirely for a dense-only record;
+        # proto3 would otherwise hand back a zero-valued one that SparseVector
+        # rejects.
+        sparse_vector = (
+            SparseVector(
+                indices=list(resp.sparse.indices),
+                values=list(resp.sparse.values),
+            )
+            if resp.HasField("sparse")
+            else None
+        )
+
+        return GetByIdResponse(
+            id=resp.id,
+            vector=list(resp.vector),
+            sparse_vector=sparse_vector,
+            metadata={k: from_proto_value(v) for k, v in resp.metadata.items()} or None,
         )
 
     def _to_proto_insert_req(self, request: InsertRequest) -> govec_pb2.InsertRequest:

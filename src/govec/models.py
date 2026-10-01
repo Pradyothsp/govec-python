@@ -67,7 +67,11 @@ class ResetResponse:
 class GetByIdResponse:
     id: str
     vector: list[float]
-    sparse_vector: SparseVector
+    # Optional because a vector need not have a sparse component, and
+    # SparseVector itself rejects empty indices/values -- so the only honest
+    # way to represent "this record is dense-only" is None. Before this was
+    # optional, get_by_id raised ValueError on every dense-only record.
+    sparse_vector: SparseVector | None = None
     metadata: dict[str, Any] | None = None
 
 

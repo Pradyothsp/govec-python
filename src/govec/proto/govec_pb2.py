@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17govec/proto/govec.proto\x12\x08govec.v1\x1a\x1cgoogle/protobuf/struct.proto\"7\n\x0cSparseVector\x12\x13\n\x07indices\x18\x01 \x03(\rB\x02\x10\x01\x12\x12\n\x06values\x18\x02 \x03(\x02\x42\x02\x10\x01\"\xd9\x01\n\rInsertRequest\x12\n\n\x02id\x18\x01 \x01(\t\x12\x12\n\x06vector\x18\x02 \x03(\x02\x42\x02\x10\x01\x12&\n\x06sparse\x18\x03 \x01(\x0b\x32\x16.govec.v1.SparseVector\x12\x37\n\x08metadata\x18\x04 \x03(\x0b\x32%.govec.v1.InsertRequest.MetadataEntry\x1aG\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12%\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.Value:\x02\x38\x01\" \n\x0eInsertResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\"S\n\x13\x42\x61tchInsertResponse\x12\x16\n\x0einserted_count\x18\x01 \x01(\x05\x12$\n\x06\x65rrors\x18\x02 \x03(\x0b\x32\x14.govec.v1.BatchError\"\'\n\nBatchError\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05\x65rror\x18\x02 \x01(\t\"\xe1\x01\n\rSearchRequest\x12\x18\n\x0cquery_vector\x18\x01 \x03(\x02\x42\x02\x10\x01\x12,\n\x0csparse_query\x18\x02 \x01(\x0b\x32\x16.govec.v1.SparseVector\x12\t\n\x01k\x18\x03 \x01(\x05\x12\x35\n\x07\x66ilters\x18\x04 \x03(\x0b\x32$.govec.v1.SearchRequest.FiltersEntry\x1a\x46\n\x0c\x46iltersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12%\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.Value:\x02\x38\x01\"\x9e\x01\n\x0cSearchResult\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05score\x18\x02 \x01(\x02\x12.\n\x04meta\x18\x03 \x03(\x0b\x32 .govec.v1.SearchResult.MetaEntry\x1a\x43\n\tMetaEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12%\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.Value:\x02\x38\x01\"9\n\x0eSearchResponse\x12\'\n\x07results\x18\x01 \x03(\x0b\x32\x16.govec.v1.SearchResult\"\x1b\n\rDeleteRequest\x12\n\n\x02id\x18\x01 \x01(\t\",\n\x0e\x44\x65leteResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\t\"\x0e\n\x0cStatsRequest\"%\n\rStatsResponse\x12\x14\n\x0cvector_count\x18\x01 \x01(\x05\"\r\n\x0bInfoRequest\"\x90\x01\n\x0cInfoResponse\x12\x14\n\x0cquantization\x18\x01 \x01(\t\x12\x12\n\nindex_type\x18\x02 \x01(\t\x12\x17\n\x0f\x64istance_metric\x18\x03 \x01(\t\x12\x12\n\ndimensions\x18\x04 \x01(\x05\x12\x14\n\x0cvector_count\x18\x05 \x01(\x05\x12\x13\n\x0b\x65nable_mmap\x18\x06 \x01(\x08\"\x0e\n\x0c\x46lushRequest\"\x1f\n\rFlushResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\"\x0f\n\rHealthRequest\" \n\x0eHealthResponse\x12\x0e\n\x06status\x18\x01 \x01(\t2\xf6\x03\n\x0cGoVecService\x12;\n\x06Insert\x12\x17.govec.v1.InsertRequest\x1a\x18.govec.v1.InsertResponse\x12G\n\x0b\x42\x61tchInsert\x12\x17.govec.v1.InsertRequest\x1a\x1d.govec.v1.BatchInsertResponse(\x01\x12;\n\x06Search\x12\x17.govec.v1.SearchRequest\x1a\x18.govec.v1.SearchResponse\x12;\n\x06\x44\x65lete\x12\x17.govec.v1.DeleteRequest\x1a\x18.govec.v1.DeleteResponse\x12\x38\n\x05Stats\x12\x16.govec.v1.StatsRequest\x1a\x17.govec.v1.StatsResponse\x12\x35\n\x04Info\x12\x15.govec.v1.InfoRequest\x1a\x16.govec.v1.InfoResponse\x12\x38\n\x05\x46lush\x12\x16.govec.v1.FlushRequest\x1a\x17.govec.v1.FlushResponse\x12;\n\x06Health\x12\x17.govec.v1.HealthRequest\x1a\x18.govec.v1.HealthResponseB2Z0github.com/Pradyothsp/govec/gen/govec/v1;govecv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17govec/proto/govec.proto\x12\x08govec.v1\x1a\x1cgoogle/protobuf/struct.proto\"7\n\x0cSparseVector\x12\x13\n\x07indices\x18\x01 \x03(\rB\x02\x10\x01\x12\x12\n\x06values\x18\x02 \x03(\x02\x42\x02\x10\x01\"\xd9\x01\n\rInsertRequest\x12\n\n\x02id\x18\x01 \x01(\t\x12\x12\n\x06vector\x18\x02 \x03(\x02\x42\x02\x10\x01\x12&\n\x06sparse\x18\x03 \x01(\x0b\x32\x16.govec.v1.SparseVector\x12\x37\n\x08metadata\x18\x04 \x03(\x0b\x32%.govec.v1.InsertRequest.MetadataEntry\x1aG\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12%\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.Value:\x02\x38\x01\" \n\x0eInsertResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\"S\n\x13\x42\x61tchInsertResponse\x12\x16\n\x0einserted_count\x18\x01 \x01(\x05\x12$\n\x06\x65rrors\x18\x02 \x03(\x0b\x32\x14.govec.v1.BatchError\"\'\n\nBatchError\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05\x65rror\x18\x02 \x01(\t\"\xe1\x01\n\rSearchRequest\x12\x18\n\x0cquery_vector\x18\x01 \x03(\x02\x42\x02\x10\x01\x12,\n\x0csparse_query\x18\x02 \x01(\x0b\x32\x16.govec.v1.SparseVector\x12\t\n\x01k\x18\x03 \x01(\x05\x12\x35\n\x07\x66ilters\x18\x04 \x03(\x0b\x32$.govec.v1.SearchRequest.FiltersEntry\x1a\x46\n\x0c\x46iltersEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12%\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.Value:\x02\x38\x01\"\x9e\x01\n\x0cSearchResult\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05score\x18\x02 \x01(\x02\x12.\n\x04meta\x18\x03 \x03(\x0b\x32 .govec.v1.SearchResult.MetaEntry\x1a\x43\n\tMetaEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12%\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.Value:\x02\x38\x01\"9\n\x0eSearchResponse\x12\'\n\x07results\x18\x01 \x03(\x0b\x32\x16.govec.v1.SearchResult\"\x1b\n\rDeleteRequest\x12\n\n\x02id\x18\x01 \x01(\t\",\n\x0e\x44\x65leteResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\t\"\x1c\n\x0eGetByIDRequest\x12\n\n\x02id\x18\x01 \x01(\t\"\xdd\x01\n\x0fGetByIDResponse\x12\n\n\x02id\x18\x01 \x01(\t\x12\x12\n\x06vector\x18\x02 \x03(\x02\x42\x02\x10\x01\x12&\n\x06sparse\x18\x03 \x01(\x0b\x32\x16.govec.v1.SparseVector\x12\x39\n\x08metadata\x18\x04 \x03(\x0b\x32\'.govec.v1.GetByIDResponse.MetadataEntry\x1aG\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12%\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.Value:\x02\x38\x01\"\x0e\n\x0cStatsRequest\"%\n\rStatsResponse\x12\x14\n\x0cvector_count\x18\x01 \x01(\x05\"\r\n\x0bInfoRequest\"\x90\x01\n\x0cInfoResponse\x12\x14\n\x0cquantization\x18\x01 \x01(\t\x12\x12\n\nindex_type\x18\x02 \x01(\t\x12\x17\n\x0f\x64istance_metric\x18\x03 \x01(\t\x12\x12\n\ndimensions\x18\x04 \x01(\x05\x12\x14\n\x0cvector_count\x18\x05 \x01(\x05\x12\x13\n\x0b\x65nable_mmap\x18\x06 \x01(\x08\"\x0e\n\x0c\x46lushRequest\"\x1f\n\rFlushResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\"\x0e\n\x0cResetRequest\"\x1f\n\rResetResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\"\x0f\n\rHealthRequest\" \n\x0eHealthResponse\x12\x0e\n\x06status\x18\x01 \x01(\t2\xf0\x04\n\x0cGoVecService\x12;\n\x06Insert\x12\x17.govec.v1.InsertRequest\x1a\x18.govec.v1.InsertResponse\x12G\n\x0b\x42\x61tchInsert\x12\x17.govec.v1.InsertRequest\x1a\x1d.govec.v1.BatchInsertResponse(\x01\x12;\n\x06Search\x12\x17.govec.v1.SearchRequest\x1a\x18.govec.v1.SearchResponse\x12;\n\x06\x44\x65lete\x12\x17.govec.v1.DeleteRequest\x1a\x18.govec.v1.DeleteResponse\x12>\n\x07GetByID\x12\x18.govec.v1.GetByIDRequest\x1a\x19.govec.v1.GetByIDResponse\x12\x38\n\x05Stats\x12\x16.govec.v1.StatsRequest\x1a\x17.govec.v1.StatsResponse\x12\x35\n\x04Info\x12\x15.govec.v1.InfoRequest\x1a\x16.govec.v1.InfoResponse\x12\x38\n\x05\x46lush\x12\x16.govec.v1.FlushRequest\x1a\x17.govec.v1.FlushResponse\x12\x38\n\x05Reset\x12\x16.govec.v1.ResetRequest\x1a\x17.govec.v1.ResetResponse\x12;\n\x06Health\x12\x17.govec.v1.HealthRequest\x1a\x18.govec.v1.HealthResponseB2Z0github.com/Pradyothsp/govec/gen/govec/v1;govecv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -47,6 +47,10 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_SEARCHREQUEST'].fields_by_name['query_vector']._serialized_options = b'\020\001'
   _globals['_SEARCHRESULT_METAENTRY']._loaded_options = None
   _globals['_SEARCHRESULT_METAENTRY']._serialized_options = b'8\001'
+  _globals['_GETBYIDRESPONSE_METADATAENTRY']._loaded_options = None
+  _globals['_GETBYIDRESPONSE_METADATAENTRY']._serialized_options = b'8\001'
+  _globals['_GETBYIDRESPONSE'].fields_by_name['vector']._loaded_options = None
+  _globals['_GETBYIDRESPONSE'].fields_by_name['vector']._serialized_options = b'\020\001'
   _globals['_SPARSEVECTOR']._serialized_start=67
   _globals['_SPARSEVECTOR']._serialized_end=122
   _globals['_INSERTREQUEST']._serialized_start=125
@@ -73,22 +77,32 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_DELETEREQUEST']._serialized_end=979
   _globals['_DELETERESPONSE']._serialized_start=981
   _globals['_DELETERESPONSE']._serialized_end=1025
-  _globals['_STATSREQUEST']._serialized_start=1027
-  _globals['_STATSREQUEST']._serialized_end=1041
-  _globals['_STATSRESPONSE']._serialized_start=1043
-  _globals['_STATSRESPONSE']._serialized_end=1080
-  _globals['_INFOREQUEST']._serialized_start=1082
-  _globals['_INFOREQUEST']._serialized_end=1095
-  _globals['_INFORESPONSE']._serialized_start=1098
-  _globals['_INFORESPONSE']._serialized_end=1242
-  _globals['_FLUSHREQUEST']._serialized_start=1244
-  _globals['_FLUSHREQUEST']._serialized_end=1258
-  _globals['_FLUSHRESPONSE']._serialized_start=1260
-  _globals['_FLUSHRESPONSE']._serialized_end=1291
-  _globals['_HEALTHREQUEST']._serialized_start=1293
-  _globals['_HEALTHREQUEST']._serialized_end=1308
-  _globals['_HEALTHRESPONSE']._serialized_start=1310
-  _globals['_HEALTHRESPONSE']._serialized_end=1342
-  _globals['_GOVECSERVICE']._serialized_start=1345
-  _globals['_GOVECSERVICE']._serialized_end=1847
+  _globals['_GETBYIDREQUEST']._serialized_start=1027
+  _globals['_GETBYIDREQUEST']._serialized_end=1055
+  _globals['_GETBYIDRESPONSE']._serialized_start=1058
+  _globals['_GETBYIDRESPONSE']._serialized_end=1279
+  _globals['_GETBYIDRESPONSE_METADATAENTRY']._serialized_start=271
+  _globals['_GETBYIDRESPONSE_METADATAENTRY']._serialized_end=342
+  _globals['_STATSREQUEST']._serialized_start=1281
+  _globals['_STATSREQUEST']._serialized_end=1295
+  _globals['_STATSRESPONSE']._serialized_start=1297
+  _globals['_STATSRESPONSE']._serialized_end=1334
+  _globals['_INFOREQUEST']._serialized_start=1336
+  _globals['_INFOREQUEST']._serialized_end=1349
+  _globals['_INFORESPONSE']._serialized_start=1352
+  _globals['_INFORESPONSE']._serialized_end=1496
+  _globals['_FLUSHREQUEST']._serialized_start=1498
+  _globals['_FLUSHREQUEST']._serialized_end=1512
+  _globals['_FLUSHRESPONSE']._serialized_start=1514
+  _globals['_FLUSHRESPONSE']._serialized_end=1545
+  _globals['_RESETREQUEST']._serialized_start=1547
+  _globals['_RESETREQUEST']._serialized_end=1561
+  _globals['_RESETRESPONSE']._serialized_start=1563
+  _globals['_RESETRESPONSE']._serialized_end=1594
+  _globals['_HEALTHREQUEST']._serialized_start=1596
+  _globals['_HEALTHREQUEST']._serialized_end=1611
+  _globals['_HEALTHRESPONSE']._serialized_start=1613
+  _globals['_HEALTHRESPONSE']._serialized_end=1645
+  _globals['_GOVECSERVICE']._serialized_start=1648
+  _globals['_GOVECSERVICE']._serialized_end=2272
 # @@protoc_insertion_point(module_scope)
