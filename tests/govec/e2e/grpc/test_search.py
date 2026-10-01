@@ -77,5 +77,25 @@ def test_search__integer_metadata__comes_back_as_float(
     results = govec_grpc_client.search(dense_vector=request.vector, k=1)
 
     # Assert
-    assert results[0].meta["year"] == 2024.0
-    assert isinstance(results[0].meta["year"], float)
+    meta = results[0].meta
+    assert meta is not None
+    assert meta["year"] == 2024.0
+    assert isinstance(meta["year"], float)
+
+
+@pytest.mark.e2e
+def test_search__vector_without_metadata__returns_no_meta(
+    govec_grpc_client: GoVecClient,
+    inserted_vector: Callable[..., InsertRequest],
+) -> None:
+    # A protobuf map is always present, so gRPC reports "no metadata" as an
+    # empty map where REST omits the key. Both must surface as None, or the
+    # transport a caller picked would change what they have to check for.
+    request = inserted_vector()
+
+    # Act
+    results = govec_grpc_client.search(dense_vector=request.vector, k=1)
+
+    # Assert
+    assert results[0].id == request.id
+    assert results[0].meta is None

@@ -67,7 +67,9 @@ Each e2e leaf task owns the precondition for the server it needs; the `test:e2e`
   instantiation rather than at call time.
 - **Both transports must behave identically behind the client**, not just return the same
   type. `get_by_id` is the example: REST returns `None` for a 404, so the gRPC transport
-  translates `NOT_FOUND` into `None` rather than raising.
+  translates `NOT_FOUND` into `None` rather than raising. `search` is the other: a
+  protobuf map is always present, so gRPC reports "no metadata" as an empty map where
+  REST omits the key — the transport normalises it to `None` to match.
 - E2e tests are marked per-test with `@pytest.mark.e2e`. `addopts = ["-m", "not e2e"]`
   deselects them by default, so a bare `pytest` runs the unit tests and needs no server.
 - Both e2e suites share one server for a whole session, and the gRPC suite resets it

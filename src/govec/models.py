@@ -67,10 +67,9 @@ class ResetResponse:
 class GetByIdResponse:
     id: str
     vector: list[float]
-    # Optional because a vector need not have a sparse component, and
-    # SparseVector itself rejects empty indices/values -- so the only honest
-    # way to represent "this record is dense-only" is None. Before this was
-    # optional, get_by_id raised ValueError on every dense-only record.
+    # None for a dense-only record. SparseVector rejects empty indices/values,
+    # so None is the only way to say "this record has no sparse component" --
+    # both transports omit the field rather than sending an empty one.
     sparse_vector: SparseVector | None = None
     metadata: dict[str, Any] | None = None
 
@@ -116,7 +115,10 @@ class SearchRequest:
 class SearchResponse:
     id: str
     score: float
-    meta: dict[str, Any]
+    # None when the vector carries no metadata. REST omits the key entirely in
+    # that case and gRPC sends an empty map; both are normalised to None so the
+    # two transports agree.
+    meta: dict[str, Any] | None = None
 
 
 @dataclass

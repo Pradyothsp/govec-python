@@ -279,7 +279,9 @@ class GRPCTransport(BaseTransport):
             SearchResponse(
                 id=r.id,
                 score=r.score,
-                meta={k: from_proto_value(v) for k, v in r.meta.items()},
+                # A protobuf map is always present, so an empty one is how gRPC
+                # says "no metadata". REST omits the key; both become None.
+                meta={k: from_proto_value(v) for k, v in r.meta.items()} or None,
             )
             for r in resp.results
         ]
