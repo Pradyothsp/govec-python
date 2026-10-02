@@ -194,10 +194,14 @@ class GoVecClient:
     def delete(self, vector_id: str) -> bool:
         """
         Deletes a vector by its ID.
+
+        Raises GoVecAPIError if the vector does not exist -- both transports
+        report a missing vector as an error, so this does not return False for
+        that case.
         """
         response = self._transport.delete(vector_id)
 
-        if response.id == vector_id and response.status in ("deleted", "ok"):
-            return True
-        else:
-            return False
+        # Was `in ("deleted", "ok")`: the server used to answer "deleted" over
+        # REST and "ok" over gRPC, and accepting both was how the SDK hid that.
+        # Both say "deleted" now, so the second value is unreachable.
+        return response.id == vector_id and response.status == "deleted"
