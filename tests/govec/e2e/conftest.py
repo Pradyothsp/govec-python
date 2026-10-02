@@ -17,8 +17,10 @@ from govec.models import InsertRequest
 #
 # Both suites must also agree on this number. They share one server and the
 # server rejects a vector whose width differs from the index's, so a
-# disagreement would fail whichever suite ran second. Reset does not help:
-# Clear() empties the store but leaves the learned width in place.
+# disagreement would fail whichever suite ran second. Reset is not a way out
+# when the server has a configured engine.dimensions: that width is the
+# operator's choice and survives a reset, and only a width the index learned
+# from its first insert is released.
 E2E_DIMENSIONS = 1536
 
 
