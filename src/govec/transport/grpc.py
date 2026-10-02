@@ -2,7 +2,7 @@ from collections.abc import Iterator
 from typing import cast, override
 import grpc
 
-from govec.exceptions import GoVecAPIError, GoVecConnectionError
+from govec.exceptions import GoVecAPIError, GoVecConnectionError, GoVecTimeoutError
 from govec.models import (
     BatchInsertError,
     BatchInsertResponse,
@@ -50,10 +50,23 @@ class GRPCTransport(BaseTransport):
         else:
             self.channel = grpc.insecure_channel(self.target, options=options)
 
-        self.stub = govec_pb2_grpc.GoVecServiceStub(self.channel)
+        self._stub = govec_pb2_grpc.GoVecServiceStub(self.channel)
 
-    def close(self) -> None:
-        """Close underlying gRPC channel."""
+    @property
+    def stub(self) -> govec_pb2_grpc.GoVecServiceStub:
+        """The service stub, refused once this transport has been closed.
+
+        Guarding here rather than at the top of all ten RPC methods means a
+        method added later cannot forget the check -- there is no way to reach
+        the stub that bypasses it. Invoking an RPC on a closed channel
+        otherwise fails somewhere inside grpc with a message that says nothing
+        about this SDK.
+        """
+        self._ensure_open()
+        return self._stub
+
+    @override
+    def _release(self) -> None:
         self.channel.close()
 
     def _handle_rpc_error(self, e: grpc.RpcError) -> None:
@@ -63,6 +76,13 @@ class GRPCTransport(BaseTransport):
             if code == grpc.StatusCode.UNAVAILABLE:
                 raise GoVecConnectionError(
                     f"Failed to connect to GoVec gRPC server: {details}"
+                ) from e
+            if code == grpc.StatusCode.DEADLINE_EXCEEDED:
+                # Not an API error: the server never answered. Matches what
+                # REST reports for httpx.TimeoutException.
+                raise GoVecTimeoutError(
+                    f"GoVec gRPC server at {self.target} did not respond "
+                    f"within the deadline: {details}"
                 ) from e
             # code.value is (number, name) -- label it gRPC so a NOT_FOUND
             # does not render as "HTTP 5".

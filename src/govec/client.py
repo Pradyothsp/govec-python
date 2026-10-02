@@ -1,8 +1,6 @@
-from typing import Any, Literal, assert_never
+from types import TracebackType
+from typing import Any, Literal, Self, assert_never
 
-import httpx
-
-from govec.exceptions import GoVecConnectionError
 from govec.models import (
     BatchInsertError,
     BatchInsertResponse,
@@ -57,8 +55,34 @@ class GoVecClient:
             self.dimensions = server_config.dimensions
             self.enable_mmap = server_config.enable_mmap
 
-        except httpx.HTTPError as e:
-            raise GoVecConnectionError("Failed to connect to the GoVec server.") from e
+        except BaseException:
+            # The transport already holds a connection pool or an open channel.
+            # A failed handshake raises instead of returning an object, so the
+            # caller has nothing to close -- this is the only chance to do it.
+            self._transport.close()
+            raise
+
+    def close(self) -> None:
+        """Release the underlying connection. Safe to call more than once.
+
+        Prefer the context manager where the client's lifetime fits a block;
+        call this directly when it does not, such as from a web framework's
+        shutdown hook.
+        """
+        self._transport.close()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        # Returning None rather than False: an exception from inside the
+        # with-block propagates instead of being swallowed.
+        self.close()
 
     def health(self) -> HealthResponse:
         """
