@@ -9,8 +9,15 @@ class StatsResponse:
     vector_count: int
 
 
-IndexType = Literal["hnsw", "brute_force"]
-DistanceMetric = Literal["cosine"]
+# These must match what the server actually puts in /info -- see the constants
+# in its internal/config/config.go. "brute_force" was never one of them; the
+# server says "brute", so the only two values a real response can carry were
+# one typo and one omission. Nothing failed at runtime because InfoResponse is
+# built by splatting the JSON, with no validation -- the cost landed on anyone
+# type-checking `info.index_type == "brute"`, which a checker called
+# impossible.
+IndexType = Literal["brute", "hnsw"]
+DistanceMetric = Literal["cosine", "euclidean"]
 
 
 @dataclass
