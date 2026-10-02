@@ -10,12 +10,8 @@ from govec.client import GoVecClient
 
 @pytest.mark.e2e
 def test_flush__called__reports_flushed(govec_e2e_client: GoVecClient) -> None:
-    # "flushed", not "ok" -- the two transports disagree on the status string
-    # for the same operation, and this pins what REST actually says today.
-    # gRPC answers "ok" here, and likewise where REST says "reset",
-    # "inserted" and "deleted". See govec-notes FIXES.md; until that is
-    # settled server-side, `response.status == "ok"` is a check that passes
-    # over gRPC and fails over REST.
+    # The gRPC suite asserts the same string, which is the point -- the server
+    # used to answer "ok" over gRPC and "flushed" over REST for this one call.
     response = govec_e2e_client.flush()
 
     # Assert
