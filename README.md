@@ -196,6 +196,12 @@ Two transport differences to know, both from protobuf:
   `get_by_id` over gRPC returns `0.12` as `0.11999999731779099`. REST rounds it back to
   `0.12`.
 
+## Roadmap
+
+- **Async client** (planned for 0.2.0): an `AsyncGoVecClient` with the same API over
+  `httpx.AsyncClient` and `grpc.aio`, for FastAPI services and async RAG pipelines. Until
+  then, call the sync client from async code with `await asyncio.to_thread(client.search, ...)`.
+
 ## Contributing
 
 Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
