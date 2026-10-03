@@ -1,17 +1,44 @@
 [project]
 name = "govec"
 version = "0.1.0"
-description = "Add your description here"
+description = "Python client for GoVec, a compact vector search engine, over REST or gRPC"
 readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [
     { name = "Pradyoth", email = "sppradyoth@outlook.com" }
 ]
-requires-python = ">=3.13"
+keywords = [
+    "vector-database", "vector-search", "similarity-search", "semantic-search",
+    "nearest-neighbor-search", "hybrid-search", "embeddings", "rag", "llm",
+    "hnsw", "grpc", "govec",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Database",
+    "Topic :: Database :: Front-Ends",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+requires-python = ">=3.12"
 dependencies = [
     "grpcio>=1.60.0",
     "httpx>=0.28.1",
     "protobuf>=4.25.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Pradyothsp/govec-python"
+Source = "https://github.com/Pradyothsp/govec-python"
+Issues = "https://github.com/Pradyothsp/govec-python/issues"
+Server = "https://github.com/Pradyothsp/govec"
 
 [dependency-groups]
 dev = [

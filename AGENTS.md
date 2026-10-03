@@ -6,7 +6,7 @@ Python client.
 ## Project
 
 `govec` is the Python client library for [GoVec](https://github.com/Pradyothsp/govec), a
-single-node vector database. Managed with `uv`. `requires-python` is `>=3.13`;
+single-node vector database. Managed with `uv`. `requires-python` is `>=3.12`;
 `.python-version` pins 3.14 for local development.
 
 `GoVecClient` covers the server's whole surface: health, info, stats, flush, reset,
