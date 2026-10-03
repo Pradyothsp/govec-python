@@ -5,6 +5,8 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+  # release.yml runs this exact workflow before publishing, so a tag can't ship untested code.
+  workflow_call:
 
 jobs:
   test:
