@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+
+    # The published server image, so the e2e suites exercise a real GoVec over both
+    # transports. Pinned to a release: bump it deliberately when the SDK targets a newer one.
+    services:
+      govec:
+        image: ghcr.io/pradyothsp/govec:0.1.0
+        ports:
+          - 9697:9697
+          - 9698:9698
+        env:
+          GOVEC_GRPC_ENABLED: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --locked --all-groups
+
+      - name: Lint and format
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Type check
+        run: uv run ty check
+
+      - name: Unit tests
+        run: uv run pytest
+
+      # Run one after the other, as `task test:e2e` does: both suites share the server, and
+      # the gRPC suite resets it.
+      - name: E2E tests (REST)
+        run: uv run pytest tests/govec/e2e/rest -m e2e
+
+      - name: E2E tests (gRPC)
+        run: uv run pytest tests/govec/e2e/grpc -m e2e
