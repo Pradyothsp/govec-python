@@ -36,9 +36,11 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/Pradyothsp/govec-python"
+Documentation = "https://github.com/Pradyothsp/govec-python#readme"
 Source = "https://github.com/Pradyothsp/govec-python"
 Issues = "https://github.com/Pradyothsp/govec-python/issues"
-Server = "https://github.com/Pradyothsp/govec"
+Changelog = "https://github.com/Pradyothsp/govec-python/releases"
+"GoVec server" = "https://github.com/Pradyothsp/govec"
 
 [dependency-groups]
 dev = [
