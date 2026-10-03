@@ -28,6 +28,8 @@ class InfoResponse:
     dimensions: int
     vector_count: int
     enable_mmap: bool
+    # The server release: the git tag it was built from, or "dev" for a local build.
+    version: str
 
 
 @dataclass

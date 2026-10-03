@@ -273,3 +273,63 @@ def test_search__result_without_metadata__has_no_meta(
 
     # Assert
     assert results[0].meta is None
+
+
+def test_server_info__response__includes_the_server_version(
+    rest_transport: BuildTransport, ok_json: BuildOkHandler
+) -> None:
+    # Arrange
+    transport = rest_transport(ok_json(_info_payload(version="v0.1.0")))
+
+    # Act
+    info = transport.server_info()
+
+    # Assert
+    assert info.version == "v0.1.0"
+
+
+# --- forward compatibility ----------------------------------------------------
+#
+# Every response used to be built by splatting the JSON into its dataclass, so
+# a field the server added in a later release -- as it did with /info's
+# "version" -- raised TypeError in every older client. Unknown fields are now
+# dropped; these pin that for the two shapes most likely to grow.
+
+
+def test_server_info__server_sends_a_field_the_sdk_does_not_know__ignores_it(
+    rest_transport: BuildTransport, ok_json: BuildOkHandler
+) -> None:
+    # Arrange
+    payload = _info_payload(version="v9.0.0") | {"added_in_a_later_release": True}
+    transport = rest_transport(ok_json(payload))
+
+    # Act
+    info = transport.server_info()
+
+    # Assert
+    assert info.version == "v9.0.0"
+
+
+def test_search__result_has_a_field_the_sdk_does_not_know__ignores_it(
+    rest_transport: BuildTransport, ok_json: BuildOkHandler
+) -> None:
+    # Arrange
+    transport = rest_transport(ok_json([{"id": "a", "score": 1.0, "rank": 1}]))
+
+    # Act
+    results = transport.search(SearchRequest(vector=[1.0], k=1))
+
+    # Assert
+    assert results[0].id == "a"
+
+
+def _info_payload(version: str) -> dict[str, object]:
+    return {
+        "quantization": "none",
+        "index_type": "brute",
+        "distance_metric": "cosine",
+        "dimensions": 3,
+        "vector_count": 0,
+        "enable_mmap": False,
+        "version": version,
+    }

@@ -124,6 +124,7 @@ class GRPCTransport(BaseTransport):
             dimensions=resp.dimensions,
             vector_count=resp.vector_count,
             enable_mmap=resp.enable_mmap,
+            version=resp.version,
         )
 
     @override

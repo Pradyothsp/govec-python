@@ -91,7 +91,18 @@ class RESTTransport(BaseTransport):
         if response.status_code != 200:
             raise GoVecAPIError(response.status_code, response_json.get("error", ""))
 
-        return InfoResponse(**response_json["data"])
+        # Responses are built field by field, never by splatting the JSON: a field
+        # the server adds in a later release must not break a client built before it.
+        data = response_json["data"]
+        return InfoResponse(
+            quantization=data["quantization"],
+            index_type=data["index_type"],
+            distance_metric=data["distance_metric"],
+            dimensions=data["dimensions"],
+            vector_count=data["vector_count"],
+            enable_mmap=data["enable_mmap"],
+            version=data["version"],
+        )
 
     @override
     def get_stats(self) -> GetStatsResponse:
@@ -159,7 +170,7 @@ class RESTTransport(BaseTransport):
         if response.status_code != 201:
             raise GoVecAPIError(response.status_code, response_json.get("error", ""))
 
-        return InsertResponse(**response_json["data"])
+        return InsertResponse(status=response_json["data"]["status"])
 
     @override
     def insert_batch(self, requests: list[InsertRequest]) -> BatchInsertResponse:
@@ -176,7 +187,10 @@ class RESTTransport(BaseTransport):
         data = response_json["data"]
         return BatchInsertResponse(
             inserted_count=data["inserted_count"],
-            errors=[BatchInsertError(**e) for e in data.get("errors", [])],
+            errors=[
+                BatchInsertError(id=e["id"], error=e["error"])
+                for e in data.get("errors", [])
+            ],
         )
 
     @override
@@ -189,7 +203,10 @@ class RESTTransport(BaseTransport):
         if response.status_code != 200:
             raise GoVecAPIError(response.status_code, response_json.get("error", ""))
 
-        return [SearchResponse(**item) for item in response_json["data"]]
+        return [
+            SearchResponse(id=item["id"], score=item["score"], meta=item.get("meta"))
+            for item in response_json["data"]
+        ]
 
     @override
     def delete(self, vector_id: str) -> DeleteResponse:
@@ -199,4 +216,5 @@ class RESTTransport(BaseTransport):
         if response.status_code != 200:
             raise GoVecAPIError(response.status_code, response_json.get("error", ""))
 
-        return DeleteResponse(**response_json["data"])
+        data = response_json["data"]
+        return DeleteResponse(id=data["id"], status=data["status"])

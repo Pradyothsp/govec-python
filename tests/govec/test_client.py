@@ -50,6 +50,7 @@ class _RecordingTransport(BaseTransport):
             dimensions=1536,
             vector_count=0,
             enable_mmap=False,
+            version="dev",
         )
 
     @override

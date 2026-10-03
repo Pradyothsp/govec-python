@@ -35,3 +35,18 @@ def test_server_info__server_has_mmap_enabled__reports_it_over_grpc(
     # Assert -- hardcoded False before InfoResponse carried the field, which
     # silently disabled the client's own dimension check over gRPC.
     assert actual is True
+
+
+@pytest.mark.e2e
+def test_server_info__version__matches_what_rest_reports(
+    govec_grpc_client: GoVecClient, govec_e2e_client: GoVecClient
+) -> None:
+    # Arrange -- REST is the reference: both read the same running binary.
+    expected = govec_e2e_client.info().version
+
+    # Act
+    actual = govec_grpc_client.info().version
+
+    # Assert
+    assert expected
+    assert actual == expected

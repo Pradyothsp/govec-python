@@ -152,20 +152,22 @@ class InfoRequest(_message.Message):
     def __init__(self) -> None: ...
 
 class InfoResponse(_message.Message):
-    __slots__ = ("quantization", "index_type", "distance_metric", "dimensions", "vector_count", "enable_mmap")
+    __slots__ = ("quantization", "index_type", "distance_metric", "dimensions", "vector_count", "enable_mmap", "version")
     QUANTIZATION_FIELD_NUMBER: _ClassVar[int]
     INDEX_TYPE_FIELD_NUMBER: _ClassVar[int]
     DISTANCE_METRIC_FIELD_NUMBER: _ClassVar[int]
     DIMENSIONS_FIELD_NUMBER: _ClassVar[int]
     VECTOR_COUNT_FIELD_NUMBER: _ClassVar[int]
     ENABLE_MMAP_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
     quantization: str
     index_type: str
     distance_metric: str
     dimensions: int
     vector_count: int
     enable_mmap: bool
-    def __init__(self, quantization: _Optional[str] = ..., index_type: _Optional[str] = ..., distance_metric: _Optional[str] = ..., dimensions: _Optional[int] = ..., vector_count: _Optional[int] = ..., enable_mmap: _Optional[bool] = ...) -> None: ...
+    version: str
+    def __init__(self, quantization: _Optional[str] = ..., index_type: _Optional[str] = ..., distance_metric: _Optional[str] = ..., dimensions: _Optional[int] = ..., vector_count: _Optional[int] = ..., enable_mmap: _Optional[bool] = ..., version: _Optional[str] = ...) -> None: ...
 
 class FlushRequest(_message.Message):
     __slots__ = ()
