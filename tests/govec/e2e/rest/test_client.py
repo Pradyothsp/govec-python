@@ -17,7 +17,7 @@ def test_context_manager__block_exits__client_is_closed() -> None:
     # Arrange / Act -- a separate client, so the session-scoped fixture is not
     # closed out from under the rest of the suite.
     with GoVecClient(
-        host="localhost", port=8000, api_key="", protocol="rest", tls=False
+        host="localhost", port=9697, api_key="", protocol="rest", tls=False
     ) as client:
         assert client.health().status == "ok"
 

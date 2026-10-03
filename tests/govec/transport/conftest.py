@@ -24,7 +24,7 @@ def rest_transport() -> Callable[..., RESTTransport]:
         handler: Callable[[httpx.Request], httpx.Response],
         api_key: str | None = None,
     ) -> RESTTransport:
-        transport = RESTTransport("testserver", 8000, api_key, tls=False)
+        transport = RESTTransport("testserver", 9697, api_key, tls=False)
         transport.client.close()
         transport.client = httpx.Client(
             headers=transport.headers,

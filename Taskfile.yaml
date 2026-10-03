@@ -30,12 +30,12 @@ tasks:
     cmd: uv run pytest
 
   server:health:
-    desc: Check GoVec server is running on localhost:8000
-    cmd: curl -sf http://localhost:8000/health
+    desc: Check GoVec server is running on localhost:9697
+    cmd: curl -sf http://localhost:9697/health
 
   grpc:health:
-    desc: Check the GoVec gRPC server is listening on localhost:50051
-    cmd: nc -z localhost 50051
+    desc: Check the GoVec gRPC server is listening on localhost:9698
+    cmd: nc -z localhost 9698
 
   # The two aggregates below just chain the leaf tasks -- each leaf owns the
   # precondition for the server it needs, so there is one place to change it.
@@ -55,19 +55,19 @@ tasks:
       - task: test:e2e
 
   test:e2e:rest:
-    desc: Run REST e2e tests only (requires govec server on localhost:8000)
+    desc: Run REST e2e tests only (requires govec server on localhost:9697)
     aliases:
       - test:rest
     preconditions:
-      - sh: curl -sf http://localhost:8000/health
-        msg: "GoVec server is not running on localhost:8000"
+      - sh: curl -sf http://localhost:9697/health
+        msg: "GoVec server is not running on localhost:9697"
     cmd: uv run pytest tests/govec/e2e/rest -m e2e -v
 
   test:e2e:grpc:
-    desc: Run gRPC e2e tests only (requires govec with GOVEC_GRPC_ENABLED=true on :50051)
+    desc: Run gRPC e2e tests only (requires govec with GOVEC_GRPC_ENABLED=true on :9698)
     aliases:
       - test:grpc
     preconditions:
-      - sh: nc -z localhost 50051
-        msg: "GoVec gRPC server is not listening on localhost:50051 (set GOVEC_GRPC_ENABLED=true)"
+      - sh: nc -z localhost 9698
+        msg: "GoVec gRPC server is not listening on localhost:9698 (set GOVEC_GRPC_ENABLED=true)"
     cmd: uv run pytest tests/govec/e2e/grpc -m e2e -v

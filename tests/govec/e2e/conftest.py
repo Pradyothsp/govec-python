@@ -27,14 +27,14 @@ E2E_DIMENSIONS = 1536
 @pytest.fixture(scope="session")
 def govec_e2e_client() -> GoVecClient:
     return GoVecClient(
-        host="localhost", port=8000, api_key="", protocol="rest", tls=False
+        host="localhost", port=9697, api_key="", protocol="rest", tls=False
     )
 
 
 @pytest.fixture(scope="session")
 def govec_grpc_client() -> GoVecClient:
     return GoVecClient(
-        host="localhost", port=50051, api_key="", protocol="grpc", tls=False
+        host="localhost", port=9698, api_key="", protocol="grpc", tls=False
     )
 
 

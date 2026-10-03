@@ -38,7 +38,7 @@ grpc.Call.register(_FakeRpcError)
 @pytest.fixture
 def transport() -> GRPCTransport:
     # Creating a channel does not connect, so this needs no server.
-    return GRPCTransport("testserver", 50051, tls=False)
+    return GRPCTransport("testserver", 9698, tls=False)
 
 
 def test_handle_rpc_error__unavailable__raises_connection_error(

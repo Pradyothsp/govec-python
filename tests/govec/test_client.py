@@ -104,7 +104,7 @@ def client_with(monkeypatch: pytest.MonkeyPatch):
             lambda *args, **kwargs: transport,
         )
         client = GoVecClient(
-            host="testserver", port=8000, api_key="", protocol="rest", tls=False
+            host="testserver", port=9697, api_key="", protocol="rest", tls=False
         )
         return client, transport
 
@@ -177,7 +177,7 @@ def test_init__preflight_handshake_fails__closes_the_transport(
     # Act
     with pytest.raises(GoVecConnectionError):
         GoVecClient(
-            host="testserver", port=8000, api_key="", protocol="rest", tls=False
+            host="testserver", port=9697, api_key="", protocol="rest", tls=False
         )
 
     # Assert
@@ -189,7 +189,7 @@ def test_init__unknown_protocol__is_rejected() -> None:
     with pytest.raises(Exception):
         GoVecClient(
             host="testserver",
-            port=8000,
+            port=9697,
             api_key="",
             protocol="carrier-pigeon",  # ty: ignore[invalid-argument-type]
             tls=False,

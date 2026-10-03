@@ -25,8 +25,8 @@ uv add <package>       # Add a dependency
 uv build               # Build the package
 
 task test              # Unit tests only -- no server needed  (alias: test:unit)
-task test:e2e:rest     # REST e2e   -- needs govec on :8000
-task test:e2e:grpc     # gRPC e2e   -- needs govec on :50051 with GOVEC_GRPC_ENABLED=true
+task test:e2e:rest     # REST e2e   -- needs govec on :9697
+task test:e2e:grpc     # gRPC e2e   -- needs govec on :9698 with GOVEC_GRPC_ENABLED=true
 task test:e2e          # Both e2e suites
 task test:all          # Everything
 ```
