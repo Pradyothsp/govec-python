@@ -1,5 +1,11 @@
 from govec.client import GoVecClient
-from govec.exceptions import GoVecAPIError, GoVecConnectionError, GoVecError
+from govec.exceptions import (
+    GoVecAPIError,
+    GoVecClientClosedError,
+    GoVecConnectionError,
+    GoVecError,
+    GoVecTimeoutError,
+)
 from govec.models import (
     InfoResponse,
     InsertRequest,
@@ -13,6 +19,8 @@ __all__ = [
     "GoVecError",
     "GoVecAPIError",
     "GoVecConnectionError",
+    "GoVecTimeoutError",
+    "GoVecClientClosedError",
     "InfoResponse",
     "InsertRequest",
     "InsertResponse",
