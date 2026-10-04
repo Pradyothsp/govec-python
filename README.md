@@ -40,10 +40,10 @@ docker run -p 9697:9697 -v govec-data:/data ghcr.io/pradyothsp/govec:latest
 from govec import GoVecClient
 
 with GoVecClient(host="localhost", port=9697, api_key="", protocol="rest", tls=False) as client:
-    client.insert("doc-1", [0.12, 0.91, 0.20], metadata={"title": "Getting started"})
-    client.insert("doc-2", [0.80, 0.10, 0.31], metadata={"title": "Release notes"})
+    client.insert(vector_id="doc-1", dense_vector=[0.12, 0.91, 0.20], metadata={"title": "Getting started"})
+    client.insert(vector_id="doc-2", dense_vector=[0.80, 0.10, 0.31], metadata={"title": "Release notes"})
 
-    for hit in client.search([0.10, 0.88, 0.18], k=2):
+    for hit in client.search(dense_vector=[0.10, 0.88, 0.18], k=2):
         print(hit.id, round(hit.score, 3), hit.meta)
 ```
 
@@ -70,21 +70,59 @@ GoVecClient(host, port, api_key, protocol, tls=True)
 | `tls` | `True` (default) for `https`/TLS; pass `False` for a plain local server. |
 
 The constructor contacts the server straight away, so a wrong address fails at
-`GoVecClient(...)` rather than on the first call. Use the client as a context manager, or
-call `client.close()` when you're done.
+`GoVecClient(...)` rather than on the first call.
 
 To use gRPC, change two arguments; nothing else in your code changes:
 
 ```python
-client = GoVecClient(host="localhost", port=9698, api_key="", protocol="grpc", tls=False)
+with GoVecClient(host="localhost", port=9698, api_key="", protocol="grpc", tls=False) as client:
+    ...
 ```
 
+### Closing the client
+
+A client holds an open connection, so close it when you're done. How depends on how long
+you need it.
+
+**For scripts, jobs, notebooks and tests, use a context manager.** The connection is closed
+when the block ends, even if an exception is raised:
+
+```python
+with GoVecClient(host="localhost", port=9697, api_key="", protocol="rest", tls=False) as client:
+    client.search(dense_vector=[0.10, 0.88, 0.18], k=5)
+```
+
+**For long-running services, create one client at startup, reuse it, and close it at
+shutdown.** Don't open a client per request: each one repeats the startup handshake and a
+new connection. With FastAPI, for example:
+
+```python
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from govec import GoVecClient
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.govec = GoVecClient(host="localhost", port=9697, api_key="", protocol="rest", tls=False)
+    yield
+    app.state.govec.close()
+
+
+app = FastAPI(lifespan=lifespan)
+```
+
+`close()` is safe to call more than once.
+
 ## Guide
+
+The examples below use a connected `client`, as in the quick start.
 
 ### Inserting vectors
 
 ```python
-client.insert("doc-1", [0.12, 0.91, 0.20], metadata={"lang": "en", "year": 2024})
+client.insert(vector_id="doc-1", dense_vector=[0.12, 0.91, 0.20], metadata={"lang": "en", "year": 2024})
 ```
 
 Inserting an existing ID replaces it. For many vectors, build `InsertRequest`s and use
@@ -105,7 +143,7 @@ for failure in result.errors:
 ### Searching
 
 ```python
-hits = client.search([0.10, 0.88, 0.18], k=5)
+hits = client.search(dense_vector=[0.10, 0.88, 0.18], k=5)
 ```
 
 Each hit has `id`, `score` (higher is closer) and `meta` (`None` if the vector has no
@@ -114,7 +152,7 @@ metadata).
 **Filter by metadata.** Every key must match exactly:
 
 ```python
-client.search([0.10, 0.88, 0.18], k=5, filter={"lang": "en"})
+client.search(dense_vector=[0.10, 0.88, 0.18], k=5, filter={"lang": "en"})
 ```
 
 **Hybrid search.** Add a sparse vector (for example from BM25 or SPLADE) to both the insert
@@ -123,15 +161,23 @@ and the query; the server blends the dense and sparse scores:
 ```python
 from govec import SparseVector
 
-client.insert("doc-3", [0.3, 0.3, 0.3], sparse_vector=SparseVector(indices=[7, 42], values=[1.0, 0.5]))
-client.search([0.3, 0.3, 0.3], sparse_vector=SparseVector(indices=[42], values=[1.0]), k=3)
+client.insert(
+    vector_id="doc-3",
+    dense_vector=[0.3, 0.3, 0.3],
+    sparse_vector=SparseVector(indices=[7, 42], values=[1.0, 0.5]),
+)
+client.search(
+    dense_vector=[0.3, 0.3, 0.3],
+    sparse_vector=SparseVector(indices=[42], values=[1.0]),
+    k=3,
+)
 ```
 
 ### Reading and deleting
 
 ```python
-record = client.get_by_id("doc-1")   # vector, sparse_vector and metadata, or None if missing
-client.delete("doc-1")               # raises GoVecAPIError if the ID doesn't exist
+record = client.get_by_id(vector_id="doc-1")   # vector, sparse_vector and metadata, or None if missing
+client.delete(vector_id="doc-1")               # raises GoVecAPIError if the ID doesn't exist
 ```
 
 ### Administration
@@ -173,7 +219,7 @@ Both transports raise the same exceptions, all subclasses of `GoVecError`:
 from govec import GoVecAPIError, GoVecError
 
 try:
-    client.insert("doc-9", [0.1, 0.2])   # wrong width for a 3-dimensional index
+    client.insert(vector_id="doc-9", dense_vector=[0.1, 0.2])   # wrong width for a 3-dimensional index
 except GoVecAPIError as e:
     print(e.status_code, e.message)
 except GoVecError:
