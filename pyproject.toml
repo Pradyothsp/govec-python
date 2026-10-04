@@ -1,6 +1,6 @@
 [project]
 name = "govec"
-version = "0.1.0"
+version = "0.1.1"
 description = "Python client for GoVec, a compact vector search engine, over REST or gRPC"
 readme = "README.md"
 license = "Apache-2.0"
