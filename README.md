@@ -230,7 +230,8 @@ except GoVecError:
 
 | SDK | GoVec server | Python |
 |---|---|---|
-| 0.1.x | 0.1.0 and newer | 3.12 – 3.14 |
+| 0.1.2 | 0.1.0 and newer | 3.12 – 3.14 |
+| 0.1.0 – 0.1.1 | 0.1.0 and newer, except a gRPC search with `k=0` on 0.2.0 and newer (rejected; upgrade the SDK) | 3.12 – 3.14 |
 
 `client.info().version` tells you which server release you're connected to.
 
