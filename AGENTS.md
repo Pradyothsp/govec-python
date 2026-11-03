@@ -37,6 +37,7 @@ src/govec/
   transport/
     base.py          BaseTransport ABC: the contract both transports implement
     rest.py          REST over httpx
+    json_codec.py    request and response JSON (orjson), with the NaN/infinity check; pure functions
     grpc.py          gRPC over the generated stubs
     convert.py       Python values <-> google.protobuf.Value; pure functions, no I/O
   proto/             govec.proto (a copy of the server's) and its generated stubs
@@ -100,6 +101,11 @@ non-obvious lines (see `exceptions.py`, `get_by_id`). Match that.
 
 - **Integers don't survive gRPC.** protobuf `Struct` stores numbers as doubles, so metadata
   `{"year": 2024}` comes back as `2024.0` over gRPC. REST preserves it. Pinned by a test.
+- **orjson writes NaN and infinity as `null`.** The server decodes `null` into a float32 as 0,
+  so a NaN vector would be stored or searched as zeros with no error. `json_codec.py`
+  checks requests before encoding and raises `ValueError`, as httpx's encoder did. Keep the
+  check if you touch request encoding. orjson is there for speed: `json.dumps` of a
+  1,536-float query cost ~1.1 ms of a ~5.4 ms search.
 - **The constructor talks to the server.** `GoVecClient(...)` fetches `info` as a preflight
   handshake, so a wrong host fails there. If the handshake raises, the constructor closes the
   transport itself; the caller never got an object to close.

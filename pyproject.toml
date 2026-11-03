@@ -31,6 +31,7 @@ requires-python = ">=3.12"
 dependencies = [
     "grpcio>=1.60.0",
     "httpx>=0.28.1",
+    "orjson>=3.13.0",
     "protobuf>=4.25.0",
 ]
 

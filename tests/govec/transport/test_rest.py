@@ -9,7 +9,8 @@ from govec.exceptions import (
     GoVecConnectionError,
     GoVecTimeoutError,
 )
-from govec.models import SearchRequest, SparseVector
+from govec.models import InsertRequest, SearchRequest, SparseVector
+from govec.transport.json_codec import encode_request
 from govec.transport.rest import RESTTransport
 
 type Handler = Callable[[httpx.Request], httpx.Response]
@@ -321,6 +322,54 @@ def test_search__result_has_a_field_the_sdk_does_not_know__ignores_it(
 
     # Assert
     assert results[0].id == "a"
+
+
+# --- request bodies -------------------------------------------------------------
+#
+# What goes into a body is tested in test_json_codec.py. These pin only that the
+# transport sends what the codec produced, and sends nothing when it refuses.
+
+
+def _capture(sent: list[httpx.Request], data: object) -> Handler:
+    def _handler(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return httpx.Response(200, json={"success": True, "data": data})
+
+    return _handler
+
+
+def test_search__request__sends_the_encoded_body_as_json(
+    rest_transport: BuildTransport,
+) -> None:
+    # Arrange
+    sent: list[httpx.Request] = []
+    transport = rest_transport(_capture(sent, []))
+    request = SearchRequest(vector=[0.1, -2.5], k=3)
+
+    # Act
+    transport.search(request)
+
+    # Assert
+    assert sent[0].content == encode_request(request)
+    assert sent[0].headers["content-type"] == "application/json"
+
+
+def test_insert_batch__a_record_has_nan__raises_value_error_and_sends_nothing(
+    rest_transport: BuildTransport,
+) -> None:
+    # Arrange
+    sent: list[httpx.Request] = []
+    transport = rest_transport(_capture(sent, {"inserted_count": 0}))
+    records = [
+        InsertRequest(id="a", vector=[1.0]),
+        InsertRequest(id="b", vector=[float("nan")]),
+    ]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="vector contains NaN or infinity"):
+        transport.insert_batch(records)
+
+    assert sent == []
 
 
 def _info_payload(version: str) -> dict[str, object]:

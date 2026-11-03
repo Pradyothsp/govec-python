@@ -1,4 +1,3 @@
-from dataclasses import asdict
 from typing import Any, override
 
 import httpx
@@ -22,6 +21,7 @@ from govec.models import (
 )
 
 from govec.transport.base import BaseTransport
+from govec.transport.json_codec import decode, encode_batch, encode_request
 
 
 class RESTTransport(BaseTransport):
@@ -76,7 +76,7 @@ class RESTTransport(BaseTransport):
     def health(self) -> HealthResponse:
         # /health sits at the root, not under /api/v1 like everything else.
         response = self._send("GET", f"{self.root_url}/health")
-        response_json = response.json()
+        response_json = decode(response.content)
 
         if response.status_code != 200:
             raise GoVecAPIError(response.status_code, response_json.get("error", ""))
@@ -86,7 +86,7 @@ class RESTTransport(BaseTransport):
     @override
     def server_info(self) -> InfoResponse:
         response = self._send("GET", f"{self.base_url}/info")
-        response_json = response.json()
+        response_json = decode(response.content)
 
         if response.status_code != 200:
             raise GoVecAPIError(response.status_code, response_json.get("error", ""))
@@ -107,7 +107,7 @@ class RESTTransport(BaseTransport):
     @override
     def get_stats(self) -> GetStatsResponse:
         response = self._send("GET", f"{self.base_url}/stats")
-        response_json = response.json()
+        response_json = decode(response.content)
 
         if response.status_code != 200:
             raise GoVecAPIError(response.status_code, response_json.get("error", ""))
@@ -117,7 +117,7 @@ class RESTTransport(BaseTransport):
     @override
     def flush(self) -> FlushResponse:
         response = self._send("POST", f"{self.base_url}/admin/flush")
-        response_json = response.json()
+        response_json = decode(response.content)
 
         if response.status_code != 200:
             raise GoVecAPIError(response.status_code, response_json.get("error", ""))
@@ -127,7 +127,7 @@ class RESTTransport(BaseTransport):
     @override
     def reset(self) -> ResetResponse:
         response = self._send("POST", f"{self.base_url}/admin/reset")
-        response_json = response.json()
+        response_json = decode(response.content)
 
         if response.status_code != 200:
             raise GoVecAPIError(response.status_code, response_json.get("error", ""))
@@ -137,7 +137,7 @@ class RESTTransport(BaseTransport):
     @override
     def get_by_id(self, vector_id: str) -> GetByIdResponse | None:
         response = self._send("GET", f"{self.base_url}/vectors/{vector_id}")
-        response_json = response.json()
+        response_json = decode(response.content)
 
         if response.status_code == 404:
             return None
@@ -164,8 +164,10 @@ class RESTTransport(BaseTransport):
 
     @override
     def insert(self, request: InsertRequest) -> InsertResponse:
-        response = self._send("POST", f"{self.base_url}/vectors", json=asdict(request))
-        response_json = response.json()
+        response = self._send(
+            "POST", f"{self.base_url}/vectors", content=encode_request(request)
+        )
+        response_json = decode(response.content)
 
         if response.status_code != 201:
             raise GoVecAPIError(response.status_code, response_json.get("error", ""))
@@ -175,11 +177,9 @@ class RESTTransport(BaseTransport):
     @override
     def insert_batch(self, requests: list[InsertRequest]) -> BatchInsertResponse:
         response = self._send(
-            "POST",
-            f"{self.base_url}/vectors/batch",
-            json={"vectors": [asdict(r) for r in requests]},
+            "POST", f"{self.base_url}/vectors/batch", content=encode_batch(requests)
         )
-        response_json = response.json()
+        response_json = decode(response.content)
 
         if response.status_code != 200:
             raise GoVecAPIError(response.status_code, response_json.get("error", ""))
@@ -196,9 +196,9 @@ class RESTTransport(BaseTransport):
     @override
     def search(self, request: SearchRequest) -> list[SearchResponse]:
         response = self._send(
-            "POST", f"{self.base_url}/vectors/search", json=asdict(request)
+            "POST", f"{self.base_url}/vectors/search", content=encode_request(request)
         )
-        response_json = response.json()
+        response_json = decode(response.content)
 
         if response.status_code != 200:
             raise GoVecAPIError(response.status_code, response_json.get("error", ""))
@@ -211,7 +211,7 @@ class RESTTransport(BaseTransport):
     @override
     def delete(self, vector_id: str) -> DeleteResponse:
         response = self._send("DELETE", f"{self.base_url}/vectors/{vector_id}")
-        response_json = response.json()
+        response_json = decode(response.content)
 
         if response.status_code != 200:
             raise GoVecAPIError(response.status_code, response_json.get("error", ""))
