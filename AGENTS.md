@@ -78,7 +78,10 @@ over and run `task proto:gen`; nothing detects drift for you. Never hand-edit
 runs 3.12, 3.13 and 3.14.
 
 **Comments explain why.** The existing code records the bug or decision behind
-non-obvious lines (see `exceptions.py`, `get_by_id`). Match that.
+non-obvious lines (see `exceptions.py`, `get_by_id`). Match that. The same goes for
+docstrings: none on a function whose name and signature already say what it does
+(`decode`, `encode_request`); write one only for what the code can't show, such as the
+decision, bug or measurement behind it, a trap, or surprising behaviour.
 
 ## Testing
 
