@@ -40,13 +40,14 @@ src/govec/
     rest.py          REST over httpx: RESTTransport (Client) and AsyncRESTTransport (AsyncClient)
     rest_mappers.py  REST response -> model mappers and the status/envelope check; pure functions
     json_codec.py    request and response JSON (orjson); pure functions
-    grpc.py          gRPC over the generated stubs
+    grpc.py          gRPC over the generated stubs: GRPCTransport and AsyncGRPCTransport (grpc.aio)
     grpc_mappers.py  model <-> proto message mappers and gRPC error -> GoVec exception; pure functions
     convert.py       Python values <-> google.protobuf.Value; pure functions, no I/O
   proto/             govec.proto (a copy of the server's) and its generated stubs
 tests/
-  conftest.py        `server` (GoVec's REST API faked with respx) and `anyio_backend`
+  conftest.py        `server` (REST faked with respx), `grpc_server` (in-process gRPC), `anyio_backend`
   govec/rest_api.py  respx building blocks: BASE_URL, ok(), error(), info()
+  govec/grpc_server.py   the scripted GoVecServicer behind `grpc_server`: canned replies, recorded calls
   govec/sync_or_async.py   settle() and shut(): one test body for a sync or async transport
   govec/test_client.py   the real client over the real REST transport, network faked
   govec/test_client_logic.py   the shared client rules, once for both clients
@@ -63,17 +64,19 @@ the transport normalises. Examples: REST answers a missing vector with 404 and g
 gRPC sends an empty map; both become `None`.
 
 **Adding an operation touches:** the abstract method on both `BaseTransport` and
-`AsyncBaseTransport` (`transport/base.py`); its implementation in `RESTTransport` and
-`AsyncRESTTransport` (`rest.py`) and in `grpc.py`; its mappers in `rest_mappers.py` and
-`grpc_mappers.py`; the method on `GoVecClient`; a row in `_OPERATIONS` in
-`transport/test_rest.py`; and an e2e test in *both* `e2e/rest/` and `e2e/grpc/`. Both bases
+`AsyncBaseTransport` (`transport/base.py`); its implementation in all four transports
+(`RESTTransport` and `AsyncRESTTransport` in `rest.py`, `GRPCTransport` and
+`AsyncGRPCTransport` in `grpc.py`); its mappers in `rest_mappers.py` and `grpc_mappers.py`;
+the method on `GoVecClient`; a row in `_OPERATIONS` in both `transport/test_rest.py` and
+`transport/test_grpc.py`, plus a default reply in `tests/govec/grpc_server.py`; and an e2e
+test in *both* `e2e/rest/` and `e2e/grpc/`. Both bases
 are ABCs, so a missing implementation fails at construction rather than at call time.
 
 **Sync and async share everything but the send.** An async transport differs from its
 sync twin only in awaiting the call. URLs, headers, error translation and every mapper are
 shared, so a fix to any of them lands in both. The one thing each class still spells out
-is its method, path and expected status per operation, which is what the `_OPERATIONS`
-test pins on both.
+is, per operation, its method, path and expected status (REST) or its RPC and timeout
+(gRPC), which is what the `_OPERATIONS` tests pin on both.
 
 **Wire details live in the mappers, not the models.** A transport method only sends; turning
 a response into a model, a model into a proto request, or a gRPC error into a GoVec exception
@@ -118,6 +121,11 @@ decision, bug or measurement behind it, a trap, or surprising behaviour.
   `RESTTransport` and `AsyncRESTTransport`; tests call `await settle(transport.x(...))` and
   `await shut(transport)`, so one body drives both. Write a separate test only where the
   syntax differs (`with` vs `async with`).
+- **gRPC is faked with a real server, not a fake channel.** `grpc_server` starts a
+  `GoVecServicer` on a free port; `grpc_transport` (parametrised over sync and async)
+  connects to it. A test swaps a reply (`servicer.replies["Search"] = ...`), fails an RPC
+  (`servicer.failures["GetByID"] = Failure(...)`), and reads `servicer.calls` for what was
+  sent: request, metadata and the deadline it carried.
 - A test that needs the transport after a failed handshake builds it itself and passes it to
   `GoVecClient._from_transport`. The public constructor raises before handing anything back.
 - E2e tests carry `@pytest.mark.e2e`, and `addopts = ["-m", "not e2e"]` deselects them, so a
@@ -146,6 +154,9 @@ decision, bug or measurement behind it, a trap, or surprising behaviour.
   transport itself; the caller never got an object to close.
 - **The client-side dimension check only runs with `enable_mmap` on.** It is a
   convenience; the server enforces width and answers 400 / `InvalidArgument`.
+- **`AsyncGRPCTransport` must be built inside a running event loop.** A `grpc.aio` channel
+  binds to the loop it was created on; made outside one, every call fails with asyncio's
+  "attached to a different loop" `RuntimeError`. Its constructor checks and says so.
 - **`tls` defaults to `True`.** Local servers need `tls=False`.
 - **`uv_build` only finds packages under `src/`.** Keep library code in `src/govec/`.
 
