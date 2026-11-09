@@ -44,11 +44,13 @@ src/govec/
     grpc_mappers.py  model <-> proto message mappers and gRPC error -> GoVec exception; pure functions
     convert.py       Python values <-> google.protobuf.Value; pure functions, no I/O
   proto/             govec.proto (a copy of the server's) and its generated stubs
-tests/govec/
-  test_client.py     client behaviour against a fake transport
-  test_client_logic.py   the shared client rules, once for both clients
-  transport/         unit tests per transport module; REST runs on httpx.MockTransport
-  e2e/rest/, e2e/grpc/   one file per operation, against a live server
+tests/
+  conftest.py        `server` (GoVec's REST API faked with respx) and `anyio_backend`
+  govec/rest_api.py  respx building blocks: BASE_URL, ok(), error(), info()
+  govec/test_client.py   the real client over the real REST transport, network faked
+  govec/test_client_logic.py   the shared client rules, once for both clients
+  govec/transport/   unit tests per transport module
+  govec/e2e/rest/, govec/e2e/grpc/   one file per operation, against a live server
 .github/workflows/   ci.yml (every push/PR), release.yml (v* tags -> PyPI)
 ```
 
@@ -99,9 +101,13 @@ decision, bug or measurement behind it, a trap, or surprising behaviour.
   Assert.
 - Async tests are `async def` with `@pytest.mark.anyio`. The `anyio_backend` fixture in
   `tests/conftest.py` pins them to asyncio, because `grpc.aio` doesn't run on trio.
-- REST unit tests use the `rest_transport` fixture (`transport/conftest.py`): the real
-  transport over `httpx.MockTransport`, so request building and parsing are tested without
-  a server.
+- **No monkeypatching and no fake transports.** HTTP is faked with respx through the
+  `server` fixture: the real client and the real transport run, and only the network is
+  replaced. A request with no route fails the test, and so does a route that is never hit.
+  REST unit tests build the transport with `rest_transport` (`transport/conftest.py`),
+  which constructs it exactly as production does. respx covers `httpx.AsyncClient` too.
+- A test that needs the transport after a failed handshake builds it itself and passes it to
+  `GoVecClient._from_transport`. The public constructor raises before handing anything back.
 - E2e tests carry `@pytest.mark.e2e`, and `addopts = ["-m", "not e2e"]` deselects them, so a
   bare `pytest` never needs a server. The e2e tasks pass `-m e2e`.
 - Both e2e suites share one server for the session, and the gRPC suite resets it. **Every
