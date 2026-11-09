@@ -32,6 +32,7 @@ A local server for the e2e suites:
 ```text
 src/govec/
   client.py          GoVecClient: the public API; picks a transport, runs the preflight handshake
+  client_logic.py    width checks, batching and the delete check around transport calls; pure functions
   models.py          request/response dataclasses; input validation lives in __post_init__
   exceptions.py      GoVecError and its subclasses, the only exceptions callers should see
   transport/
@@ -45,6 +46,7 @@ src/govec/
   proto/             govec.proto (a copy of the server's) and its generated stubs
 tests/govec/
   test_client.py     client behaviour against a fake transport
+  test_client_logic.py   the shared client rules, once for both clients
   transport/         unit tests per transport module; REST runs on httpx.MockTransport
   e2e/rest/, e2e/grpc/   one file per operation, against a live server
 .github/workflows/   ci.yml (every push/PR), release.yml (v* tags -> PyPI)
