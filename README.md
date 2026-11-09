@@ -15,6 +15,8 @@ the same API.
   dense + sparse scoring, get, delete, stats, info, flush and reset.
 - **REST or gRPC, one argument apart.** Both return the same results and raise the same
   exceptions; the test suite runs every operation against a real server over both.
+- **Sync or async.** `AsyncGoVecClient` has the same methods as `GoVecClient`, awaited,
+  for FastAPI services, async RAG pipelines and agent frameworks.
 - **Typed.** Responses are dataclasses, and the package ships `py.typed`.
 - **Batch inserts that scale:** large lists are chunked for you, with per-vector errors
   reported instead of failing the whole batch.
@@ -39,7 +41,7 @@ docker run -p 9697:9697 -v govec-data:/data ghcr.io/pradyothsp/govec:latest
 ```python
 from govec import GoVecClient
 
-with GoVecClient(host="localhost", port=9697, api_key="", protocol="rest", tls=False) as client:
+with GoVecClient.connect(host="localhost", port=9697, api_key="", protocol="rest", tls=False) as client:
     client.insert(vector_id="doc-1", dense_vector=[0.12, 0.91, 0.20], metadata={"title": "Getting started"})
     client.insert(vector_id="doc-2", dense_vector=[0.80, 0.10, 0.31], metadata={"title": "Release notes"})
 
@@ -59,7 +61,7 @@ same number of dimensions.
 ## Connecting
 
 ```python
-GoVecClient(host, port, api_key, protocol, tls=True, timeout=10.0, batch_timeout=60.0)
+GoVecClient.connect(host, port, api_key, protocol, tls=True, timeout=10.0, batch_timeout=60.0)
 ```
 
 | Argument | Meaning |
@@ -71,13 +73,13 @@ GoVecClient(host, port, api_key, protocol, tls=True, timeout=10.0, batch_timeout
 | `timeout` | Seconds each request may take before `GoVecTimeoutError`. Default **10**. `None` waits indefinitely. |
 | `batch_timeout` | The same for each batch `insert_many` sends, which takes longer than a query. Default **60**. |
 
-The constructor contacts the server straight away, so a wrong address fails at
-`GoVecClient(...)` rather than on the first call.
+`connect()` contacts the server straight away, so a wrong address fails there rather than
+on the first call. `GoVecClient(...)` takes the same arguments and does the same thing.
 
 To use gRPC, change two arguments; nothing else in your code changes:
 
 ```python
-with GoVecClient(host="localhost", port=9698, api_key="", protocol="grpc", tls=False) as client:
+with GoVecClient.connect(host="localhost", port=9698, api_key="", protocol="grpc", tls=False) as client:
     ...
 ```
 
@@ -90,32 +92,62 @@ you need it.
 when the block ends, even if an exception is raised:
 
 ```python
-with GoVecClient(host="localhost", port=9697, api_key="", protocol="rest", tls=False) as client:
+with GoVecClient.connect(host="localhost", port=9697, api_key="", protocol="rest", tls=False) as client:
     client.search(dense_vector=[0.10, 0.88, 0.18], k=5)
 ```
 
 **For long-running services, create one client at startup, reuse it, and close it at
 shutdown.** Don't open a client per request: each one repeats the startup handshake and a
-new connection. With FastAPI, for example:
+new connection. For an async service, see [Async](#async).
+
+```python
+client = GoVecClient.connect(host="localhost", port=9697, api_key="", protocol="rest", tls=False)
+...
+client.close()
+```
+
+`close()` is safe to call more than once.
+
+## Async
+
+`AsyncGoVecClient` has the same methods, arguments and return values as `GoVecClient`;
+each one is awaited. Connect with `await`, or with `async with` to close it when the block
+ends:
+
+```python
+from govec import AsyncGoVecClient
+
+async with AsyncGoVecClient.connect(host="localhost", port=9697, api_key="", protocol="rest", tls=False) as client:
+    hits = await client.search(dense_vector=[0.10, 0.88, 0.18], k=5)
+```
+
+In an async service, use it instead of `GoVecClient`: a sync call blocks the event loop,
+and every other request on the server waits for it. With FastAPI:
 
 ```python
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from govec import GoVecClient
+from govec import AsyncGoVecClient
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.govec = GoVecClient(host="localhost", port=9697, api_key="", protocol="rest", tls=False)
+    app.state.govec = await AsyncGoVecClient.connect(host="localhost", port=9697, api_key="", protocol="rest", tls=False)
     yield
-    app.state.govec.close()
+    await app.state.govec.aclose()
 
 
 app = FastAPI(lifespan=lifespan)
 ```
 
-`close()` is safe to call more than once.
+- **Connect through `connect()`.** `AsyncGoVecClient(...)` is not how you get a client;
+  `connect()` runs the handshake first, so every client you hold is connected. Forgetting
+  the `await` is caught by a type checker: what `connect()` returns has no `search`.
+- **Close with `await client.aclose()`**, which is safe to call more than once.
+- **asyncio only.** gRPC's async API doesn't run on trio, so neither does the client.
+- `insert_many` still sends its batches one after another, as the sync client does:
+  sending them at once would change which write wins when an ID appears in two batches.
 
 ## Guide
 
@@ -194,6 +226,9 @@ client.reset()       # delete every vector -- irreversible
 
 ## API reference
 
+The same on both clients; on `AsyncGoVecClient` each method is awaited, and `close()` is
+`aclose()`.
+
 | Method | Returns |
 |---|---|
 | `insert(vector_id, dense_vector, sparse_vector=None, metadata=None)` | `True` |
@@ -215,7 +250,12 @@ Both transports raise the same exceptions, all subclasses of `GoVecError`:
 | `GoVecAPIError` | the server rejected the request, e.g. a vector with the wrong dimensions. `message` says why; `status_code` is the HTTP status over REST and the gRPC status code over gRPC. |
 | `GoVecConnectionError` | the server can't be reached |
 | `GoVecTimeoutError` | the server didn't answer within `timeout` (`batch_timeout` for an `insert_many` batch). Raise it, or try a smaller `k` or a narrower filter. |
-| `GoVecClientClosedError` | the client was used after `close()` |
+| `GoVecClientClosedError` | the client was used after `close()` (`aclose()`) |
+
+Input the client can check itself raises `ValueError` before anything is sent: NaN or
+infinity anywhere in a vector, metadata or filter (the server would otherwise store or
+search zeros), a vector of the wrong width when the server has mmap on, a `batch_size`
+below 1, or a timeout that isn't positive.
 
 ```python
 from govec import GoVecAPIError, GoVecError
@@ -232,7 +272,7 @@ except GoVecError:
 
 | SDK | GoVec server | Python |
 |---|---|---|
-| 0.1.2 | 0.1.0 and newer | 3.12 – 3.14 |
+| 0.1.2 – 0.2.0 | 0.1.0 and newer | 3.12 – 3.14 |
 | 0.1.0 – 0.1.1 | 0.1.0 and newer, except a gRPC search with `k=0` on 0.2.0 and newer (rejected; upgrade the SDK) | 3.12 – 3.14 |
 
 `client.info().version` tells you which server release you're connected to.
@@ -244,12 +284,6 @@ Two transport differences to know, both from protobuf:
 - **Vectors come back at 32-bit precision over gRPC:** GoVec stores 32-bit floats, so
   `get_by_id` over gRPC returns `0.12` as `0.11999999731779099`. REST rounds it back to
   `0.12`.
-
-## Roadmap
-
-- **Async client** (planned for 0.2.0): an `AsyncGoVecClient` with the same API over
-  `httpx.AsyncClient` and `grpc.aio`, for FastAPI services and async RAG pipelines. Until
-  then, call the sync client from async code with `await asyncio.to_thread(client.search, ...)`.
 
 ## Contributing
 
