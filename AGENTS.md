@@ -36,8 +36,8 @@ src/govec/
   models.py          request/response dataclasses; input validation lives in __post_init__
   exceptions.py      GoVecError and its subclasses, the only exceptions callers should see
   transport/
-    base.py          BaseTransport ABC: the contract both transports implement
-    rest.py          REST over httpx
+    base.py          BaseTransport and AsyncBaseTransport ABCs: the sync and async contracts
+    rest.py          REST over httpx: RESTTransport (Client) and AsyncRESTTransport (AsyncClient)
     rest_mappers.py  REST response -> model mappers and the status/envelope check; pure functions
     json_codec.py    request and response JSON (orjson); pure functions
     grpc.py          gRPC over the generated stubs
@@ -47,6 +47,7 @@ src/govec/
 tests/
   conftest.py        `server` (GoVec's REST API faked with respx) and `anyio_backend`
   govec/rest_api.py  respx building blocks: BASE_URL, ok(), error(), info()
+  govec/sync_or_async.py   settle() and shut(): one test body for a sync or async transport
   govec/test_client.py   the real client over the real REST transport, network faked
   govec/test_client_logic.py   the shared client rules, once for both clients
   govec/transport/   unit tests per transport module
@@ -61,11 +62,18 @@ the transport normalises. Examples: REST answers a missing vector with 404 and g
 `NOT_FOUND`; both make `get_by_id` return `None`. REST omits `meta` when there is none and
 gRPC sends an empty map; both become `None`.
 
-**Adding an operation touches seven places:** the abstract method in `transport/base.py`,
-its implementation in `rest.py` and `grpc.py`, its mappers in `rest_mappers.py` and
-`grpc_mappers.py`, the method on `GoVecClient`, and an e2e test in *both* `e2e/rest/` and
-`e2e/grpc/`. `BaseTransport` is an ABC, so a missing implementation fails at construction
-rather than at call time.
+**Adding an operation touches:** the abstract method on both `BaseTransport` and
+`AsyncBaseTransport` (`transport/base.py`); its implementation in `RESTTransport` and
+`AsyncRESTTransport` (`rest.py`) and in `grpc.py`; its mappers in `rest_mappers.py` and
+`grpc_mappers.py`; the method on `GoVecClient`; a row in `_OPERATIONS` in
+`transport/test_rest.py`; and an e2e test in *both* `e2e/rest/` and `e2e/grpc/`. Both bases
+are ABCs, so a missing implementation fails at construction rather than at call time.
+
+**Sync and async share everything but the send.** An async transport differs from its
+sync twin only in awaiting the call. URLs, headers, error translation and every mapper are
+shared, so a fix to any of them lands in both. The one thing each class still spells out
+is its method, path and expected status per operation, which is what the `_OPERATIONS`
+test pins on both.
 
 **Wire details live in the mappers, not the models.** A transport method only sends; turning
 a response into a model, a model into a proto request, or a gRPC error into a GoVec exception
@@ -106,6 +114,10 @@ decision, bug or measurement behind it, a trap, or surprising behaviour.
   replaced. A request with no route fails the test, and so does a route that is never hit.
   REST unit tests build the transport with `rest_transport` (`transport/conftest.py`),
   which constructs it exactly as production does. respx covers `httpx.AsyncClient` too.
+- **One test per behaviour, run on sync and async.** `rest_transport` is parametrised over
+  `RESTTransport` and `AsyncRESTTransport`; tests call `await settle(transport.x(...))` and
+  `await shut(transport)`, so one body drives both. Write a separate test only where the
+  syntax differs (`with` vs `async with`).
 - A test that needs the transport after a failed handshake builds it itself and passes it to
   `GoVecClient._from_transport`. The public constructor raises before handing anything back.
 - E2e tests carry `@pytest.mark.e2e`, and `addopts = ["-m", "not e2e"]` deselects them, so a
