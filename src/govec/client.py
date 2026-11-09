@@ -1,8 +1,14 @@
 from types import TracebackType
 from typing import Any, Literal, Self, assert_never
 
+from govec.client_logic import (
+    batches,
+    check_batch_widths,
+    check_width,
+    merge_batches,
+    was_deleted,
+)
 from govec.models import (
-    BatchInsertError,
     BatchInsertResponse,
     GetByIdResponse,
     InfoResponse,
@@ -131,11 +137,7 @@ class GoVecClient:
         """
         Inserts a single dense vector into the database.
         """
-        if self.enable_mmap and len(dense_vector) != self.dimensions:
-            raise ValueError(
-                f"Dimension mismatch: The GoVec server is configured for {self.dimensions} "
-                f"dimensions, but you provided a vector with {len(dense_vector)} dimensions."
-            )
+        check_width(dense_vector, self.dimensions, self.enable_mmap)
 
         request = InsertRequest(
             id=vector_id,
@@ -154,23 +156,14 @@ class GoVecClient:
         Chunks a large list of vectors and inserts them in optimized batches.
         Returns a BatchInsertResponse with the total inserted count and any per-vector errors.
         """
+        check_batch_widths(requests, self.dimensions, self.enable_mmap)
 
-        if self.enable_mmap:
-            if bad := next(
-                (r for r in requests if len(r.vector) != self.dimensions), None
-            ):
-                raise ValueError(f"Vector {bad.id} has wrong dimensions.")
-
-        total_inserted = 0
-        all_errors: list[BatchInsertError] = []
-
-        for i in range(0, len(requests), batch_size):
-            batch = requests[i : i + batch_size]
-            result = self._transport.insert_batch(batch)
-            total_inserted += result.inserted_count
-            all_errors.extend(result.errors)
-
-        return BatchInsertResponse(inserted_count=total_inserted, errors=all_errors)
+        # A generator, so batches still go one at a time and the first failure
+        # stops the rest from being sent.
+        return merge_batches(
+            self._transport.insert_batch(batch)
+            for batch in batches(requests, batch_size)
+        )
 
     def search(
         self,
@@ -200,8 +193,4 @@ class GoVecClient:
         that case.
         """
         response = self._transport.delete(vector_id)
-
-        # Was `in ("deleted", "ok")`: the server used to answer "deleted" over
-        # REST and "ok" over gRPC, and accepting both was how the SDK hid that.
-        # Both say "deleted" now, so the second value is unreachable.
-        return response.id == vector_id and response.status == "deleted"
+        return was_deleted(response, vector_id)
