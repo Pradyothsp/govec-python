@@ -54,6 +54,7 @@ dev = [
 test = [
     "anyio>=4.14.2",
     "pytest>=9.0.2",
+    "respx>=0.23.1",
 ]
 
 [build-system]
