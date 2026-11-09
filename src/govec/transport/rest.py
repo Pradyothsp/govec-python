@@ -1,8 +1,7 @@
-from typing import Any, override
+from typing import Any, NamedTuple, override
 
 import httpx
 
-from govec.exceptions import GoVecConnectionError, GoVecTimeoutError
 from govec.models import (
     BatchInsertResponse,
     DeleteResponse,
@@ -19,24 +18,37 @@ from govec.models import (
 )
 
 from govec.transport import rest_mappers as mappers
-from govec.transport.base import BaseTransport
+from govec.transport.base import AsyncBaseTransport, BaseTransport
 from govec.transport.json_codec import encode_batch, encode_request
+
+_TIMEOUT_SECONDS = 10.0
+
+
+class _Endpoint(NamedTuple):
+    root_url: str
+    base_url: str
+    headers: dict[str, str]
+
+
+def _endpoint(host: str, port: int, api_key: str | None, tls: bool) -> _Endpoint:
+    scheme = "https" if tls else "http"
+    root_url = f"{scheme}://{host}:{port}"
+    headers = {"Content-Type": "application/json"}
+
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    return _Endpoint(root_url=root_url, base_url=f"{root_url}/api/v1", headers=headers)
 
 
 class RESTTransport(BaseTransport):
     def __init__(
         self, host: str, port: int, api_key: str | None = None, tls: bool = True
     ):
-        scheme = "https" if tls else "http"
-        self.root_url = f"{scheme}://{host}:{port}"
-        self.base_url = f"{self.root_url}/api/v1"
-        self.headers = {"Content-Type": "application/json"}
-
-        if api_key:
-            self.headers["Authorization"] = f"Bearer {api_key}"
+        self.root_url, self.base_url, self.headers = _endpoint(host, port, api_key, tls)
 
         # Using a persistent client session for connection pooling (much faster!)
-        self.client = httpx.Client(headers=self.headers, timeout=10.0)
+        self.client = httpx.Client(headers=self.headers, timeout=_TIMEOUT_SECONDS)
 
     @override
     def _release(self) -> None:
@@ -51,25 +63,13 @@ class RESTTransport(BaseTransport):
         every call made afterwards -- so the same failure had two different
         exception types depending on when it happened, and REST disagreed with
         gRPC, which has always mapped UNAVAILABLE itself.
-
-        Only failures to *complete* a request are translated. A response that
-        arrives carrying an error status is the server answering, and each
-        caller turns that into GoVecAPIError with the detail it has.
         """
         self._ensure_open()
 
         try:
             return self.client.request(method, url, **kwargs)
-        except httpx.TimeoutException as e:
-            # Checked first: TimeoutException is a subclass of RequestError.
-            raise GoVecTimeoutError(
-                f"GoVec server at {self.root_url} did not respond within "
-                f"{self.client.timeout.read}s: {e}"
-            ) from e
         except httpx.RequestError as e:
-            raise GoVecConnectionError(
-                f"Failed to reach the GoVec server at {self.root_url}: {e}"
-            ) from e
+            mappers.raise_request_error(e, self.root_url, _TIMEOUT_SECONDS)
 
     @override
     def health(self) -> HealthResponse:
@@ -132,4 +132,93 @@ class RESTTransport(BaseTransport):
     @override
     def delete(self, vector_id: str) -> DeleteResponse:
         response = self._send("DELETE", f"{self.base_url}/vectors/{vector_id}")
+        return mappers.delete_from_json(mappers.unwrap(response))
+
+
+class AsyncRESTTransport(AsyncBaseTransport):
+    """RESTTransport over httpx.AsyncClient.
+
+    Everything but the send is shared with RESTTransport: the URLs and headers
+    (`_endpoint`), the error translation and every response mapper. Keep each
+    method's path and expected status in step with the sync class above.
+    """
+
+    def __init__(
+        self, host: str, port: int, api_key: str | None = None, tls: bool = True
+    ):
+        self.root_url, self.base_url, self.headers = _endpoint(host, port, api_key, tls)
+
+        # Creating an AsyncClient opens nothing and needs no running loop.
+        self.client = httpx.AsyncClient(headers=self.headers, timeout=_TIMEOUT_SECONDS)
+
+    @override
+    async def _release(self) -> None:
+        await self.client.aclose()
+
+    async def _send(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
+        self._ensure_open()
+
+        try:
+            return await self.client.request(method, url, **kwargs)
+        except httpx.RequestError as e:
+            mappers.raise_request_error(e, self.root_url, _TIMEOUT_SECONDS)
+
+    @override
+    async def health(self) -> HealthResponse:
+        response = await self._send("GET", f"{self.root_url}/health")
+        return mappers.health_from_json(mappers.unwrap(response))
+
+    @override
+    async def server_info(self) -> InfoResponse:
+        response = await self._send("GET", f"{self.base_url}/info")
+        return mappers.info_from_json(mappers.unwrap(response))
+
+    @override
+    async def get_stats(self) -> GetStatsResponse:
+        response = await self._send("GET", f"{self.base_url}/stats")
+        return mappers.stats_from_json(mappers.unwrap(response))
+
+    @override
+    async def flush(self) -> FlushResponse:
+        response = await self._send("POST", f"{self.base_url}/admin/flush")
+        return mappers.flush_from_json(mappers.unwrap(response))
+
+    @override
+    async def reset(self) -> ResetResponse:
+        response = await self._send("POST", f"{self.base_url}/admin/reset")
+        return mappers.reset_from_json(mappers.unwrap(response))
+
+    @override
+    async def get_by_id(self, vector_id: str) -> GetByIdResponse | None:
+        response = await self._send("GET", f"{self.base_url}/vectors/{vector_id}")
+
+        if response.status_code == 404:
+            return None
+
+        return mappers.get_by_id_from_json(mappers.unwrap(response))
+
+    @override
+    async def insert(self, request: InsertRequest) -> InsertResponse:
+        response = await self._send(
+            "POST", f"{self.base_url}/vectors", content=encode_request(request)
+        )
+        return mappers.insert_from_json(mappers.unwrap(response, expected_status=201))
+
+    @override
+    async def insert_batch(self, requests: list[InsertRequest]) -> BatchInsertResponse:
+        response = await self._send(
+            "POST", f"{self.base_url}/vectors/batch", content=encode_batch(requests)
+        )
+        return mappers.batch_insert_from_json(mappers.unwrap(response))
+
+    @override
+    async def search(self, request: SearchRequest) -> list[SearchResponse]:
+        response = await self._send(
+            "POST", f"{self.base_url}/vectors/search", content=encode_request(request)
+        )
+        return mappers.search_from_json(mappers.unwrap(response))
+
+    @override
+    async def delete(self, vector_id: str) -> DeleteResponse:
+        response = await self._send("DELETE", f"{self.base_url}/vectors/{vector_id}")
         return mappers.delete_from_json(mappers.unwrap(response))

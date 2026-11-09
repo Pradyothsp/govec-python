@@ -1,4 +1,5 @@
-"""Maps REST responses onto the SDK's models.
+"""Maps REST responses onto the SDK's models, and httpx failures onto GoVec
+exceptions.
 
 Kept apart from `rest.py` so the sync and async REST transports share them:
 the two differ only in how a request is sent, and everything after the
@@ -8,11 +9,11 @@ Responses are built field by field, never by splatting the JSON: a field the
 server adds in a later release must not break a client built before it.
 """
 
-from typing import Any
+from typing import Any, NoReturn
 
 import httpx
 
-from govec.exceptions import GoVecAPIError
+from govec.exceptions import GoVecAPIError, GoVecConnectionError, GoVecTimeoutError
 from govec.models import (
     BatchInsertError,
     BatchInsertResponse,
@@ -28,6 +29,25 @@ from govec.models import (
     SparseVector,
 )
 from govec.transport.json_codec import decode
+
+
+def raise_request_error(
+    e: httpx.RequestError, root_url: str, read_timeout: float
+) -> NoReturn:
+    """Translate a request that never completed into a GoVec exception.
+
+    Only failures to *complete* a request come here. A response carrying an
+    error status is the server answering, and unwrap() reports that.
+    """
+    # Checked first: TimeoutException is a subclass of RequestError.
+    if isinstance(e, httpx.TimeoutException):
+        raise GoVecTimeoutError(
+            f"GoVec server at {root_url} did not respond within {read_timeout}s: {e}"
+        ) from e
+
+    raise GoVecConnectionError(
+        f"Failed to reach the GoVec server at {root_url}: {e}"
+    ) from e
 
 
 def unwrap(response: httpx.Response, expected_status: int = 200) -> Any:
