@@ -1,3 +1,4 @@
+from govec.async_client import AsyncGoVecClient
 from govec.client import GoVecClient
 from govec.exceptions import (
     GoVecAPIError,
@@ -15,6 +16,7 @@ from govec.models import (
 )
 
 __all__ = [
+    "AsyncGoVecClient",
     "GoVecClient",
     "GoVecError",
     "GoVecAPIError",

@@ -1,22 +1,25 @@
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 import pytest
 
-from govec.client import GoVecClient
 from govec.models import InsertRequest
+from tests.govec.sync_or_async import AnyClient, settle
+
+# Every test runs once per client kind; see `client_kind` in e2e/conftest.py.
+pytestmark = pytest.mark.anyio
 
 
 @pytest.mark.e2e
-def test_search__exact_query_vector__returns_that_vector_first(
-    govec_grpc_client: GoVecClient,
-    inserted_vector: Callable[..., InsertRequest],
+async def test_search__exact_query_vector__returns_that_vector_first(
+    govec_grpc_client: AnyClient,
+    inserted_vector: Callable[..., Awaitable[InsertRequest]],
 ) -> None:
     # Arrange
-    request = inserted_vector()
+    request = await inserted_vector()
 
     # Act
-    results = govec_grpc_client.search(dense_vector=request.vector, k=1)
+    results = await settle(govec_grpc_client.search(dense_vector=request.vector, k=1))
 
     # Assert
     assert len(results) == 1
@@ -25,18 +28,20 @@ def test_search__exact_query_vector__returns_that_vector_first(
 
 
 @pytest.mark.e2e
-def test_search__metadata_filter__returns_only_matching_vectors(
-    govec_grpc_client: GoVecClient,
-    inserted_vector: Callable[..., InsertRequest],
+async def test_search__metadata_filter__returns_only_matching_vectors(
+    govec_grpc_client: AnyClient,
+    inserted_vector: Callable[..., Awaitable[InsertRequest]],
 ) -> None:
     # Arrange
     tier = f"tier-{id(object())}"
-    wanted = inserted_vector(metadata={"tier": tier})
-    inserted_vector(metadata={"tier": f"other-{tier}"})
+    wanted = await inserted_vector(metadata={"tier": tier})
+    await inserted_vector(metadata={"tier": f"other-{tier}"})
 
     # Act
-    results = govec_grpc_client.search(
-        dense_vector=wanted.vector, k=10, filter={"tier": tier}
+    results = await settle(
+        govec_grpc_client.search(
+            dense_vector=wanted.vector, k=10, filter={"tier": tier}
+        )
     )
 
     # Assert
@@ -44,9 +49,9 @@ def test_search__metadata_filter__returns_only_matching_vectors(
 
 
 @pytest.mark.e2e
-def test_search__metadata_on_result__round_trips_through_protobuf_struct(
-    govec_grpc_client: GoVecClient,
-    inserted_vector: Callable[..., InsertRequest],
+async def test_search__metadata_on_result__round_trips_through_protobuf_struct(
+    govec_grpc_client: AnyClient,
+    inserted_vector: Callable[..., Awaitable[InsertRequest]],
 ) -> None:
     # Arrange
     metadata: dict[str, Any] = {
@@ -55,26 +60,26 @@ def test_search__metadata_on_result__round_trips_through_protobuf_struct(
         "tags": ["a", "b"],
         "nested": {"key": "value"},
     }
-    request = inserted_vector(metadata=metadata)
+    request = await inserted_vector(metadata=metadata)
 
     # Act
-    results = govec_grpc_client.search(dense_vector=request.vector, k=1)
+    results = await settle(govec_grpc_client.search(dense_vector=request.vector, k=1))
 
     # Assert
     assert results[0].meta == metadata
 
 
 @pytest.mark.e2e
-def test_search__integer_metadata__comes_back_as_float(
-    govec_grpc_client: GoVecClient,
-    inserted_vector: Callable[..., InsertRequest],
+async def test_search__integer_metadata__comes_back_as_float(
+    govec_grpc_client: AnyClient,
+    inserted_vector: Callable[..., Awaitable[InsertRequest]],
 ) -> None:
     # Arrange -- protobuf Struct stores every number as a double, so ints
     # cannot survive a gRPC round trip. REST (JSON) preserves them.
-    request = inserted_vector(metadata={"year": 2024})
+    request = await inserted_vector(metadata={"year": 2024})
 
     # Act
-    results = govec_grpc_client.search(dense_vector=request.vector, k=1)
+    results = await settle(govec_grpc_client.search(dense_vector=request.vector, k=1))
 
     # Assert
     meta = results[0].meta
@@ -84,17 +89,19 @@ def test_search__integer_metadata__comes_back_as_float(
 
 
 @pytest.mark.e2e
-def test_search__vector_without_metadata__returns_no_meta(
-    govec_grpc_client: GoVecClient,
-    inserted_vector: Callable[..., InsertRequest],
+async def test_search__vector_without_metadata__returns_no_meta(
+    govec_grpc_client: AnyClient,
+    inserted_vector: Callable[..., Awaitable[InsertRequest]],
 ) -> None:
     # A protobuf map is always present, so gRPC reports "no metadata" as an
     # empty map where REST omits the key. Both must surface as None, or the
     # transport a caller picked would change what they have to check for.
-    request = inserted_vector()
+
+    # Arrange
+    request = await inserted_vector()
 
     # Act
-    results = govec_grpc_client.search(dense_vector=request.vector, k=1)
+    results = await settle(govec_grpc_client.search(dense_vector=request.vector, k=1))
 
     # Assert
     assert results[0].id == request.id

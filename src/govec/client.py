@@ -90,6 +90,33 @@ class GoVecClient:
         self._attach(transport, host, port, protocol)
 
     @classmethod
+    def connect(
+        cls,
+        host: str,
+        port: int,
+        api_key: str,
+        protocol: Protocol,
+        tls: bool = True,
+        timeout: float | None = DEFAULT_TIMEOUT,
+        batch_timeout: float | None = DEFAULT_BATCH_TIMEOUT,
+    ) -> Self:
+        """Connect to a GoVec server; the client returned has completed its handshake.
+
+        The same as calling the constructor. It exists so sync and async code
+        read alike: `GoVecClient.connect(...)` and
+        `await AsyncGoVecClient.connect(...)`.
+        """
+        return cls(
+            host,
+            port,
+            api_key,
+            protocol,
+            tls=tls,
+            timeout=timeout,
+            batch_timeout=batch_timeout,
+        )
+
+    @classmethod
     def _from_transport(
         cls, transport: BaseTransport, host: str, port: int, protocol: Protocol
     ) -> Self:
