@@ -40,6 +40,7 @@ src/govec/
     rest_mappers.py  REST response -> model mappers and the status/envelope check; pure functions
     json_codec.py    request and response JSON (orjson), with the NaN/infinity check; pure functions
     grpc.py          gRPC over the generated stubs
+    grpc_mappers.py  model <-> proto message mappers and gRPC error -> GoVec exception; pure functions
     convert.py       Python values <-> google.protobuf.Value; pure functions, no I/O
   proto/             govec.proto (a copy of the server's) and its generated stubs
 tests/govec/
@@ -56,10 +57,16 @@ the transport normalises. Examples: REST answers a missing vector with 404 and g
 `NOT_FOUND`; both make `get_by_id` return `None`. REST omits `meta` when there is none and
 gRPC sends an empty map; both become `None`.
 
-**Adding an operation touches five places:** the abstract method in `transport/base.py`,
-its implementation in `rest.py` and `grpc.py`, the method on `GoVecClient`, and an e2e test
-in *both* `e2e/rest/` and `e2e/grpc/`. `BaseTransport` is an ABC, so a missing
-implementation fails at construction rather than at call time.
+**Adding an operation touches seven places:** the abstract method in `transport/base.py`,
+its implementation in `rest.py` and `grpc.py`, its mappers in `rest_mappers.py` and
+`grpc_mappers.py`, the method on `GoVecClient`, and an e2e test in *both* `e2e/rest/` and
+`e2e/grpc/`. `BaseTransport` is an ABC, so a missing implementation fails at construction
+rather than at call time.
+
+**Wire details live in the mappers, not the models.** A transport method only sends; turning
+a response into a model, a model into a proto request, or a gRPC error into a GoVec exception
+happens in `rest_mappers.py` / `grpc_mappers.py`, so a sync and an async transport can share
+it. The mappers are internal: not methods on the models, and not exported.
 
 **Build responses field by field.** Never `Model(**json)`. Splatting turns every field a
 newer server adds into a `TypeError` for every older SDK. Read the fields the model

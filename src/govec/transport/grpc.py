@@ -1,28 +1,24 @@
 from collections.abc import Iterator
 from typing import cast, override
+
 import grpc
 
-from govec.exceptions import GoVecAPIError, GoVecConnectionError, GoVecTimeoutError
 from govec.models import (
-    BatchInsertError,
     BatchInsertResponse,
     DeleteResponse,
-    DistanceMetric,
     FlushResponse,
     GetByIdResponse,
     GetStatsResponse,
     HealthResponse,
-    IndexType,
     InfoResponse,
     InsertRequest,
     InsertResponse,
     ResetResponse,
     SearchRequest,
     SearchResponse,
-    SparseVector,
 )
 from govec.proto import govec_pb2, govec_pb2_grpc
-from govec.transport.convert import from_proto_value, to_proto_value
+from govec.transport import grpc_mappers as mappers
 from govec.transport.base import BaseTransport
 
 
@@ -69,26 +65,6 @@ class GRPCTransport(BaseTransport):
     def _release(self) -> None:
         self.channel.close()
 
-    def _handle_rpc_error(self, e: grpc.RpcError) -> None:
-        if isinstance(e, grpc.Call):
-            code = e.code()
-            details = e.details() or ""
-            if code == grpc.StatusCode.UNAVAILABLE:
-                raise GoVecConnectionError(
-                    f"Failed to connect to GoVec gRPC server: {details}"
-                ) from e
-            if code == grpc.StatusCode.DEADLINE_EXCEEDED:
-                # Not an API error: the server never answered. Matches what
-                # REST reports for httpx.TimeoutException.
-                raise GoVecTimeoutError(
-                    f"GoVec gRPC server at {self.target} did not respond "
-                    f"within the deadline: {details}"
-                ) from e
-            # code.value is (number, name) -- label it gRPC so a NOT_FOUND
-            # does not render as "HTTP 5".
-            raise GoVecAPIError(code.value[0], details, status_label="gRPC") from e
-        raise e
-
     @override
     def health(self) -> HealthResponse:
         try:
@@ -99,10 +75,9 @@ class GRPCTransport(BaseTransport):
                 ),
             )
         except grpc.RpcError as e:
-            self._handle_rpc_error(e)
-            raise
+            mappers.raise_rpc_error(e, self.target)
 
-        return HealthResponse(status=resp.status)
+        return mappers.health_from_proto(resp)
 
     @override
     def server_info(self) -> InfoResponse:
@@ -114,18 +89,9 @@ class GRPCTransport(BaseTransport):
                 ),
             )
         except grpc.RpcError as e:
-            self._handle_rpc_error(e)
-            raise
+            mappers.raise_rpc_error(e, self.target)
 
-        return InfoResponse(
-            quantization=resp.quantization,
-            index_type=cast(IndexType, resp.index_type),
-            distance_metric=cast(DistanceMetric, resp.distance_metric),
-            dimensions=resp.dimensions,
-            vector_count=resp.vector_count,
-            enable_mmap=resp.enable_mmap,
-            version=resp.version,
-        )
+        return mappers.info_from_proto(resp)
 
     @override
     def get_stats(self) -> GetStatsResponse:
@@ -137,10 +103,9 @@ class GRPCTransport(BaseTransport):
                 ),
             )
         except grpc.RpcError as e:
-            self._handle_rpc_error(e)
-            raise
+            mappers.raise_rpc_error(e, self.target)
 
-        return GetStatsResponse(vector_count=resp.vector_count)
+        return mappers.stats_from_proto(resp)
 
     @override
     def flush(self) -> FlushResponse:
@@ -152,10 +117,9 @@ class GRPCTransport(BaseTransport):
                 ),
             )
         except grpc.RpcError as e:
-            self._handle_rpc_error(e)
-            raise
+            mappers.raise_rpc_error(e, self.target)
 
-        return FlushResponse(status=resp.status)
+        return mappers.flush_from_proto(resp)
 
     @override
     def reset(self) -> ResetResponse:
@@ -167,10 +131,9 @@ class GRPCTransport(BaseTransport):
                 ),
             )
         except grpc.RpcError as e:
-            self._handle_rpc_error(e)
-            raise
+            mappers.raise_rpc_error(e, self.target)
 
-        return ResetResponse(status=resp.status)
+        return mappers.reset_from_proto(resp)
 
     @override
     def get_by_id(self, vector_id: str) -> GetByIdResponse | None:
@@ -186,68 +149,31 @@ class GRPCTransport(BaseTransport):
         except grpc.RpcError as e:
             # REST returns None for a missing vector rather than raising, and
             # the two transports have to behave the same way behind the client.
-            if isinstance(e, grpc.Call) and e.code() == grpc.StatusCode.NOT_FOUND:
+            if mappers.status_of(e) == grpc.StatusCode.NOT_FOUND:
                 return None
-            self._handle_rpc_error(e)
-            raise
+            mappers.raise_rpc_error(e, self.target)
 
-        # The server omits the sparse message entirely for a dense-only record;
-        # proto3 would otherwise hand back a zero-valued one that SparseVector
-        # rejects.
-        sparse_vector = (
-            SparseVector(
-                indices=list(resp.sparse.indices),
-                values=list(resp.sparse.values),
-            )
-            if resp.HasField("sparse")
-            else None
-        )
-
-        return GetByIdResponse(
-            id=resp.id,
-            vector=list(resp.vector),
-            sparse_vector=sparse_vector,
-            metadata={k: from_proto_value(v) for k, v in resp.metadata.items()} or None,
-        )
-
-    def _to_proto_insert_req(self, request: InsertRequest) -> govec_pb2.InsertRequest:
-        sparse_pb = None
-        if request.sparse_vector:
-            sparse_pb = govec_pb2.SparseVector(
-                indices=request.sparse_vector.indices,
-                values=request.sparse_vector.values,
-            )
-        meta_pb = (
-            {k: to_proto_value(v) for k, v in request.metadata.items()}
-            if request.metadata
-            else None
-        )
-        return govec_pb2.InsertRequest(
-            id=request.id,
-            vector=request.vector,
-            sparse=sparse_pb,
-            metadata=meta_pb,
-        )
+        return mappers.get_by_id_from_proto(resp)
 
     @override
     def insert(self, request: InsertRequest) -> InsertResponse:
-        proto_req = self._to_proto_insert_req(request)
+        proto_req = mappers.insert_request_to_proto(request)
+
         try:
             resp = cast(
                 govec_pb2.InsertResponse,
                 self.stub.Insert(proto_req, metadata=self.metadata, timeout=10.0),
             )
         except grpc.RpcError as e:
-            self._handle_rpc_error(e)
-            raise
+            mappers.raise_rpc_error(e, self.target)
 
-        return InsertResponse(status=resp.status)
+        return mappers.insert_from_proto(resp)
 
     @override
     def insert_batch(self, requests: list[InsertRequest]) -> BatchInsertResponse:
         def request_generator() -> Iterator[govec_pb2.InsertRequest]:
             for r in requests:
-                yield self._to_proto_insert_req(r)
+                yield mappers.insert_request_to_proto(r)
 
         try:
             resp = cast(
@@ -257,35 +183,13 @@ class GRPCTransport(BaseTransport):
                 ),
             )
         except grpc.RpcError as e:
-            self._handle_rpc_error(e)
-            raise
+            mappers.raise_rpc_error(e, self.target)
 
-        return BatchInsertResponse(
-            inserted_count=resp.inserted_count,
-            errors=[BatchInsertError(id=e.id, error=e.error) for e in resp.errors],
-        )
+        return mappers.batch_insert_from_proto(resp)
 
     @override
     def search(self, request: SearchRequest) -> list[SearchResponse]:
-        sparse_pb = None
-        if request.sparse_vector:
-            sparse_pb = govec_pb2.SparseVector(
-                indices=request.sparse_vector.indices,
-                values=request.sparse_vector.values,
-            )
-
-        filters_pb = (
-            {k: to_proto_value(v) for k, v in request.filter.items()}
-            if request.filter
-            else None
-        )
-
-        proto_req = govec_pb2.SearchRequest(
-            query_vector=request.vector or [],
-            sparse_query=sparse_pb,
-            k=request.k,
-            filters=filters_pb,
-        )
+        proto_req = mappers.search_request_to_proto(request)
 
         try:
             resp = cast(
@@ -293,19 +197,9 @@ class GRPCTransport(BaseTransport):
                 self.stub.Search(proto_req, metadata=self.metadata, timeout=10.0),
             )
         except grpc.RpcError as e:
-            self._handle_rpc_error(e)
-            raise
+            mappers.raise_rpc_error(e, self.target)
 
-        return [
-            SearchResponse(
-                id=r.id,
-                score=r.score,
-                # A protobuf map is always present, so an empty one is how gRPC
-                # says "no metadata". REST omits the key; both become None.
-                meta={k: from_proto_value(v) for k, v in r.meta.items()} or None,
-            )
-            for r in resp.results
-        ]
+        return mappers.search_from_proto(resp)
 
     @override
     def delete(self, vector_id: str) -> DeleteResponse:
@@ -319,7 +213,6 @@ class GRPCTransport(BaseTransport):
                 ),
             )
         except grpc.RpcError as e:
-            self._handle_rpc_error(e)
-            raise
+            mappers.raise_rpc_error(e, self.target)
 
-        return DeleteResponse(id=resp.id, status=resp.status)
+        return mappers.delete_from_proto(resp)
