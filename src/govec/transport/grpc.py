@@ -19,16 +19,22 @@ from govec.models import (
 )
 from govec.proto import govec_pb2, govec_pb2_grpc
 from govec.transport import grpc_mappers as mappers
-from govec.transport.base import BaseTransport
+from govec.transport.base import BaseTransport, Timeouts
 
 
 class GRPCTransport(BaseTransport):
     """gRPC transport implementation for GoVec."""
 
     def __init__(
-        self, host: str, port: int, api_key: str | None = None, tls: bool = True
+        self,
+        host: str,
+        port: int,
+        api_key: str | None = None,
+        tls: bool = True,
+        timeouts: Timeouts = Timeouts(),
     ):
         self.target = f"{host}:{port}"
+        self.timeouts = timeouts
         self.api_key = api_key
         self.metadata: list[tuple[str, str]] = []
         if api_key:
@@ -71,7 +77,9 @@ class GRPCTransport(BaseTransport):
             resp = cast(
                 govec_pb2.HealthResponse,
                 self.stub.Health(
-                    govec_pb2.HealthRequest(), metadata=self.metadata, timeout=10.0
+                    govec_pb2.HealthRequest(),
+                    metadata=self.metadata,
+                    timeout=self.timeouts.call,
                 ),
             )
         except grpc.RpcError as e:
@@ -85,7 +93,9 @@ class GRPCTransport(BaseTransport):
             resp = cast(
                 govec_pb2.InfoResponse,
                 self.stub.Info(
-                    govec_pb2.InfoRequest(), metadata=self.metadata, timeout=10.0
+                    govec_pb2.InfoRequest(),
+                    metadata=self.metadata,
+                    timeout=self.timeouts.call,
                 ),
             )
         except grpc.RpcError as e:
@@ -99,7 +109,9 @@ class GRPCTransport(BaseTransport):
             resp = cast(
                 govec_pb2.StatsResponse,
                 self.stub.Stats(
-                    govec_pb2.StatsRequest(), metadata=self.metadata, timeout=10.0
+                    govec_pb2.StatsRequest(),
+                    metadata=self.metadata,
+                    timeout=self.timeouts.call,
                 ),
             )
         except grpc.RpcError as e:
@@ -113,7 +125,9 @@ class GRPCTransport(BaseTransport):
             resp = cast(
                 govec_pb2.FlushResponse,
                 self.stub.Flush(
-                    govec_pb2.FlushRequest(), metadata=self.metadata, timeout=10.0
+                    govec_pb2.FlushRequest(),
+                    metadata=self.metadata,
+                    timeout=self.timeouts.call,
                 ),
             )
         except grpc.RpcError as e:
@@ -127,7 +141,9 @@ class GRPCTransport(BaseTransport):
             resp = cast(
                 govec_pb2.ResetResponse,
                 self.stub.Reset(
-                    govec_pb2.ResetRequest(), metadata=self.metadata, timeout=10.0
+                    govec_pb2.ResetRequest(),
+                    metadata=self.metadata,
+                    timeout=self.timeouts.call,
                 ),
             )
         except grpc.RpcError as e:
@@ -143,7 +159,7 @@ class GRPCTransport(BaseTransport):
                 self.stub.GetByID(
                     govec_pb2.GetByIDRequest(id=vector_id),
                     metadata=self.metadata,
-                    timeout=10.0,
+                    timeout=self.timeouts.call,
                 ),
             )
         except grpc.RpcError as e:
@@ -162,7 +178,9 @@ class GRPCTransport(BaseTransport):
         try:
             resp = cast(
                 govec_pb2.InsertResponse,
-                self.stub.Insert(proto_req, metadata=self.metadata, timeout=10.0),
+                self.stub.Insert(
+                    proto_req, metadata=self.metadata, timeout=self.timeouts.call
+                ),
             )
         except grpc.RpcError as e:
             mappers.raise_rpc_error(e, self.target)
@@ -179,7 +197,9 @@ class GRPCTransport(BaseTransport):
             resp = cast(
                 govec_pb2.BatchInsertResponse,
                 self.stub.BatchInsert(
-                    request_generator(), metadata=self.metadata, timeout=60.0
+                    request_generator(),
+                    metadata=self.metadata,
+                    timeout=self.timeouts.batch,
                 ),
             )
         except grpc.RpcError as e:
@@ -194,7 +214,9 @@ class GRPCTransport(BaseTransport):
         try:
             resp = cast(
                 govec_pb2.SearchResponse,
-                self.stub.Search(proto_req, metadata=self.metadata, timeout=10.0),
+                self.stub.Search(
+                    proto_req, metadata=self.metadata, timeout=self.timeouts.call
+                ),
             )
         except grpc.RpcError as e:
             mappers.raise_rpc_error(e, self.target)
@@ -209,7 +231,7 @@ class GRPCTransport(BaseTransport):
                 self.stub.Delete(
                     govec_pb2.DeleteRequest(id=vector_id),
                     metadata=self.metadata,
-                    timeout=10.0,
+                    timeout=self.timeouts.call,
                 ),
             )
         except grpc.RpcError as e:

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from types import TracebackType
 from typing import Self
 
@@ -17,6 +18,30 @@ from govec.models import (
     GetByIdResponse,
     HealthResponse,
 )
+
+
+DEFAULT_TIMEOUT = 10.0
+DEFAULT_BATCH_TIMEOUT = 60.0
+
+
+@dataclass(frozen=True)
+class Timeouts:
+    """Seconds a call may take before GoVecTimeoutError; None waits forever.
+
+    `batch` is separate because one insert_batch carries up to a whole
+    insert_many chunk and legitimately takes far longer than a query. Both
+    transports apply both the same way: REST once used 10 s for a batch while
+    gRPC used 60 s, so the same batch could time out on one and not the other.
+    """
+
+    call: float | None = DEFAULT_TIMEOUT
+    batch: float | None = DEFAULT_BATCH_TIMEOUT
+
+    def __post_init__(self) -> None:
+        # Named after the client's arguments, which is what a caller passed.
+        for name, value in (("timeout", self.call), ("batch_timeout", self.batch)):
+            if value is not None and value <= 0:
+                raise ValueError(f"{name} must be positive or None, got {value}")
 
 
 class _Closable:

@@ -3,6 +3,7 @@ from typing import cast
 
 import pytest
 
+from govec.transport.base import Timeouts
 from govec.transport.rest import AsyncRESTTransport, RESTTransport
 from tests.govec.rest_api import HOST, PORT
 
@@ -19,7 +20,9 @@ def rest_transport(
     """
     transport_class = cast(type[RESTTransport | AsyncRESTTransport], request.param)
 
-    def _build(api_key: str | None = None) -> RESTTransport | AsyncRESTTransport:
-        return transport_class(HOST, PORT, api_key, tls=False)
+    def _build(
+        api_key: str | None = None, timeouts: Timeouts = Timeouts()
+    ) -> RESTTransport | AsyncRESTTransport:
+        return transport_class(HOST, PORT, api_key, tls=False, timeouts=timeouts)
 
     return _build

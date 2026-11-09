@@ -32,7 +32,7 @@ from govec.transport.json_codec import decode
 
 
 def raise_request_error(
-    e: httpx.RequestError, root_url: str, read_timeout: float
+    e: httpx.RequestError, root_url: str, read_timeout: float | None
 ) -> NoReturn:
     """Translate a request that never completed into a GoVec exception.
 
