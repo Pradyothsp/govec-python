@@ -263,6 +263,23 @@ def test_get_by_id__missing_vector__returns_none_rather_than_raising(
     assert record is None
 
 
+def test_get_by_id__404_body_is_not_json__returns_none(
+    rest_transport: BuildTransport,
+) -> None:
+    # Arrange
+    # A reverse proxy in front of GoVec can answer 404 with its own HTML page.
+    def proxy_not_found(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, text="<html>Not Found</html>")
+
+    transport = rest_transport(proxy_not_found)
+
+    # Act
+    record = transport.get_by_id("nope")
+
+    # Assert
+    assert record is None
+
+
 def test_search__result_without_metadata__has_no_meta(
     rest_transport: BuildTransport, ok_json: BuildOkHandler
 ) -> None:

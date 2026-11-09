@@ -37,6 +37,7 @@ src/govec/
   transport/
     base.py          BaseTransport ABC: the contract both transports implement
     rest.py          REST over httpx
+    rest_mappers.py  REST response -> model mappers and the status/envelope check; pure functions
     json_codec.py    request and response JSON (orjson), with the NaN/infinity check; pure functions
     grpc.py          gRPC over the generated stubs
     convert.py       Python values <-> google.protobuf.Value; pure functions, no I/O

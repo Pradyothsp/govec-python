@@ -2,9 +2,8 @@ from typing import Any, override
 
 import httpx
 
-from govec.exceptions import GoVecAPIError, GoVecConnectionError, GoVecTimeoutError
+from govec.exceptions import GoVecConnectionError, GoVecTimeoutError
 from govec.models import (
-    BatchInsertError,
     BatchInsertResponse,
     DeleteResponse,
     GetByIdResponse,
@@ -14,14 +13,14 @@ from govec.models import (
     ResetResponse,
     SearchRequest,
     SearchResponse,
-    SparseVector,
     GetStatsResponse,
     FlushResponse,
     HealthResponse,
 )
 
+from govec.transport import rest_mappers as mappers
 from govec.transport.base import BaseTransport
-from govec.transport.json_codec import decode, encode_batch, encode_request
+from govec.transport.json_codec import encode_batch, encode_request
 
 
 class RESTTransport(BaseTransport):
@@ -76,145 +75,61 @@ class RESTTransport(BaseTransport):
     def health(self) -> HealthResponse:
         # /health sits at the root, not under /api/v1 like everything else.
         response = self._send("GET", f"{self.root_url}/health")
-        response_json = decode(response.content)
-
-        if response.status_code != 200:
-            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
-
-        return HealthResponse(status=response_json["data"]["status"])
+        return mappers.health_from_json(mappers.unwrap(response))
 
     @override
     def server_info(self) -> InfoResponse:
         response = self._send("GET", f"{self.base_url}/info")
-        response_json = decode(response.content)
-
-        if response.status_code != 200:
-            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
-
-        # Responses are built field by field, never by splatting the JSON: a field
-        # the server adds in a later release must not break a client built before it.
-        data = response_json["data"]
-        return InfoResponse(
-            quantization=data["quantization"],
-            index_type=data["index_type"],
-            distance_metric=data["distance_metric"],
-            dimensions=data["dimensions"],
-            vector_count=data["vector_count"],
-            enable_mmap=data["enable_mmap"],
-            version=data["version"],
-        )
+        return mappers.info_from_json(mappers.unwrap(response))
 
     @override
     def get_stats(self) -> GetStatsResponse:
         response = self._send("GET", f"{self.base_url}/stats")
-        response_json = decode(response.content)
-
-        if response.status_code != 200:
-            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
-
-        return GetStatsResponse(vector_count=response_json["data"]["vector_count"])
+        return mappers.stats_from_json(mappers.unwrap(response))
 
     @override
     def flush(self) -> FlushResponse:
         response = self._send("POST", f"{self.base_url}/admin/flush")
-        response_json = decode(response.content)
-
-        if response.status_code != 200:
-            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
-
-        return FlushResponse(status=response_json["data"]["status"])
+        return mappers.flush_from_json(mappers.unwrap(response))
 
     @override
     def reset(self) -> ResetResponse:
         response = self._send("POST", f"{self.base_url}/admin/reset")
-        response_json = decode(response.content)
-
-        if response.status_code != 200:
-            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
-
-        return ResetResponse(status=response_json["data"]["status"])
+        return mappers.reset_from_json(mappers.unwrap(response))
 
     @override
     def get_by_id(self, vector_id: str) -> GetByIdResponse | None:
         response = self._send("GET", f"{self.base_url}/vectors/{vector_id}")
-        response_json = decode(response.content)
 
+        # Checked before the body is decoded: a 404 is the answer, whatever
+        # the body says, so a proxy's non-JSON 404 page must not raise here.
         if response.status_code == 404:
             return None
 
-        if response.status_code != 200:
-            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
-
-        data = response_json["data"]
-
-        # A dense-only record omits sparse_vector entirely.
-        sparse = data.get("sparse_vector")
-        sparse_vector = (
-            SparseVector(indices=sparse["indices"], values=sparse["values"])
-            if sparse
-            else None
-        )
-
-        return GetByIdResponse(
-            id=data["id"],
-            vector=data["vector"],
-            sparse_vector=sparse_vector,
-            metadata=data.get("metadata"),
-        )
+        return mappers.get_by_id_from_json(mappers.unwrap(response))
 
     @override
     def insert(self, request: InsertRequest) -> InsertResponse:
         response = self._send(
             "POST", f"{self.base_url}/vectors", content=encode_request(request)
         )
-        response_json = decode(response.content)
-
-        if response.status_code != 201:
-            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
-
-        return InsertResponse(status=response_json["data"]["status"])
+        return mappers.insert_from_json(mappers.unwrap(response, expected_status=201))
 
     @override
     def insert_batch(self, requests: list[InsertRequest]) -> BatchInsertResponse:
         response = self._send(
             "POST", f"{self.base_url}/vectors/batch", content=encode_batch(requests)
         )
-        response_json = decode(response.content)
-
-        if response.status_code != 200:
-            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
-
-        data = response_json["data"]
-        return BatchInsertResponse(
-            inserted_count=data["inserted_count"],
-            errors=[
-                BatchInsertError(id=e["id"], error=e["error"])
-                for e in data.get("errors", [])
-            ],
-        )
+        return mappers.batch_insert_from_json(mappers.unwrap(response))
 
     @override
     def search(self, request: SearchRequest) -> list[SearchResponse]:
         response = self._send(
             "POST", f"{self.base_url}/vectors/search", content=encode_request(request)
         )
-        response_json = decode(response.content)
-
-        if response.status_code != 200:
-            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
-
-        return [
-            SearchResponse(id=item["id"], score=item["score"], meta=item.get("meta"))
-            for item in response_json["data"]
-        ]
+        return mappers.search_from_json(mappers.unwrap(response))
 
     @override
     def delete(self, vector_id: str) -> DeleteResponse:
         response = self._send("DELETE", f"{self.base_url}/vectors/{vector_id}")
-        response_json = decode(response.content)
-
-        if response.status_code != 200:
-            raise GoVecAPIError(response.status_code, response_json.get("error", ""))
-
-        data = response_json["data"]
-        return DeleteResponse(id=data["id"], status=data["status"])
+        return mappers.delete_from_json(mappers.unwrap(response))
