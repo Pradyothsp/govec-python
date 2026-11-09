@@ -27,7 +27,8 @@ class GoVecTimeoutError(GoVecError):
     Kept apart from `GoVecConnectionError` because the two call for different
     responses: an unreachable server will not improve on retry of the same
     request, while a timeout often means the one query was too expensive and a
-    smaller `k` or a narrower filter would succeed. Both transports raise this
+    smaller `k`, a narrower filter or a larger `timeout` / `batch_timeout` on
+    the client would succeed. Both transports raise this
     -- REST from `httpx.TimeoutException`, gRPC from `DEADLINE_EXCEEDED`.
     """
 

@@ -18,10 +18,8 @@ from govec.models import (
 )
 
 from govec.transport import rest_mappers as mappers
-from govec.transport.base import AsyncBaseTransport, BaseTransport
+from govec.transport.base import AsyncBaseTransport, BaseTransport, Timeouts
 from govec.transport.json_codec import encode_batch, encode_request
-
-_TIMEOUT_SECONDS = 10.0
 
 
 class _Endpoint(NamedTuple):
@@ -43,18 +41,26 @@ def _endpoint(host: str, port: int, api_key: str | None, tls: bool) -> _Endpoint
 
 class RESTTransport(BaseTransport):
     def __init__(
-        self, host: str, port: int, api_key: str | None = None, tls: bool = True
+        self,
+        host: str,
+        port: int,
+        api_key: str | None = None,
+        tls: bool = True,
+        timeouts: Timeouts = Timeouts(),
     ):
         self.root_url, self.base_url, self.headers = _endpoint(host, port, api_key, tls)
+        self.timeouts = timeouts
 
         # Using a persistent client session for connection pooling (much faster!)
-        self.client = httpx.Client(headers=self.headers, timeout=_TIMEOUT_SECONDS)
+        self.client = httpx.Client(headers=self.headers, timeout=timeouts.call)
 
     @override
     def _release(self) -> None:
         self.client.close()
 
-    def _send(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
+    def _send(
+        self, method: str, url: str, batch: bool = False, **kwargs: Any
+    ) -> httpx.Response:
         """Issue a request, translating httpx failures into govec exceptions.
 
         Every request goes through here so that callers never see an httpx
@@ -63,13 +69,17 @@ class RESTTransport(BaseTransport):
         every call made afterwards -- so the same failure had two different
         exception types depending on when it happened, and REST disagreed with
         gRPC, which has always mapped UNAVAILABLE itself.
+
+        The timeout is passed on every request rather than left to the httpx
+        client, so the one an error reports is the one that applied.
         """
         self._ensure_open()
+        timeout = self.timeouts.batch if batch else self.timeouts.call
 
         try:
-            return self.client.request(method, url, **kwargs)
+            return self.client.request(method, url, timeout=timeout, **kwargs)
         except httpx.RequestError as e:
-            mappers.raise_request_error(e, self.root_url, _TIMEOUT_SECONDS)
+            mappers.raise_request_error(e, self.root_url, timeout)
 
     @override
     def health(self) -> HealthResponse:
@@ -118,7 +128,10 @@ class RESTTransport(BaseTransport):
     @override
     def insert_batch(self, requests: list[InsertRequest]) -> BatchInsertResponse:
         response = self._send(
-            "POST", f"{self.base_url}/vectors/batch", content=encode_batch(requests)
+            "POST",
+            f"{self.base_url}/vectors/batch",
+            batch=True,
+            content=encode_batch(requests),
         )
         return mappers.batch_insert_from_json(mappers.unwrap(response))
 
@@ -144,24 +157,33 @@ class AsyncRESTTransport(AsyncBaseTransport):
     """
 
     def __init__(
-        self, host: str, port: int, api_key: str | None = None, tls: bool = True
+        self,
+        host: str,
+        port: int,
+        api_key: str | None = None,
+        tls: bool = True,
+        timeouts: Timeouts = Timeouts(),
     ):
         self.root_url, self.base_url, self.headers = _endpoint(host, port, api_key, tls)
+        self.timeouts = timeouts
 
         # Creating an AsyncClient opens nothing and needs no running loop.
-        self.client = httpx.AsyncClient(headers=self.headers, timeout=_TIMEOUT_SECONDS)
+        self.client = httpx.AsyncClient(headers=self.headers, timeout=timeouts.call)
 
     @override
     async def _release(self) -> None:
         await self.client.aclose()
 
-    async def _send(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
+    async def _send(
+        self, method: str, url: str, batch: bool = False, **kwargs: Any
+    ) -> httpx.Response:
         self._ensure_open()
+        timeout = self.timeouts.batch if batch else self.timeouts.call
 
         try:
-            return await self.client.request(method, url, **kwargs)
+            return await self.client.request(method, url, timeout=timeout, **kwargs)
         except httpx.RequestError as e:
-            mappers.raise_request_error(e, self.root_url, _TIMEOUT_SECONDS)
+            mappers.raise_request_error(e, self.root_url, timeout)
 
     @override
     async def health(self) -> HealthResponse:
@@ -207,7 +229,10 @@ class AsyncRESTTransport(AsyncBaseTransport):
     @override
     async def insert_batch(self, requests: list[InsertRequest]) -> BatchInsertResponse:
         response = await self._send(
-            "POST", f"{self.base_url}/vectors/batch", content=encode_batch(requests)
+            "POST",
+            f"{self.base_url}/vectors/batch",
+            batch=True,
+            content=encode_batch(requests),
         )
         return mappers.batch_insert_from_json(mappers.unwrap(response))
 

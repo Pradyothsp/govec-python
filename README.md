@@ -59,7 +59,7 @@ same number of dimensions.
 ## Connecting
 
 ```python
-GoVecClient(host, port, api_key, protocol, tls=True)
+GoVecClient(host, port, api_key, protocol, tls=True, timeout=10.0, batch_timeout=60.0)
 ```
 
 | Argument | Meaning |
@@ -68,6 +68,8 @@ GoVecClient(host, port, api_key, protocol, tls=True)
 | `api_key` | The server's `server.api_key`, sent as a bearer token. Pass `""` when auth is off (the default). |
 | `protocol` | `"rest"` or `"grpc"`. gRPC must be enabled on the server (`GOVEC_GRPC_ENABLED=true`). |
 | `tls` | `True` (default) for `https`/TLS; pass `False` for a plain local server. |
+| `timeout` | Seconds each request may take before `GoVecTimeoutError`. Default **10**. `None` waits indefinitely. |
+| `batch_timeout` | The same for each batch `insert_many` sends, which takes longer than a query. Default **60**. |
 
 The constructor contacts the server straight away, so a wrong address fails at
 `GoVecClient(...)` rather than on the first call.
@@ -212,7 +214,7 @@ Both transports raise the same exceptions, all subclasses of `GoVecError`:
 |---|---|
 | `GoVecAPIError` | the server rejected the request, e.g. a vector with the wrong dimensions. `message` says why; `status_code` is the HTTP status over REST and the gRPC status code over gRPC. |
 | `GoVecConnectionError` | the server can't be reached |
-| `GoVecTimeoutError` | the server didn't answer in time (10 s per request, 60 s for a gRPC batch insert); a smaller `k` or a narrower filter often helps |
+| `GoVecTimeoutError` | the server didn't answer within `timeout` (`batch_timeout` for an `insert_many` batch). Raise it, or try a smaller `k` or a narrower filter. |
 | `GoVecClientClosedError` | the client was used after `close()` |
 
 ```python

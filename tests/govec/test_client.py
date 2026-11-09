@@ -119,6 +119,58 @@ def test_init__unknown_protocol__is_rejected() -> None:
         )
 
 
+# --- timeouts -------------------------------------------------------------------
+
+
+def test_init__timeouts_given__apply_to_calls_and_to_batches(
+    server: respx.MockRouter,
+) -> None:
+    # Arrange
+    handshake = server.get("/api/v1/info").mock(return_value=ok(info()))
+    batch = server.post("/api/v1/vectors/batch").mock(
+        return_value=ok({"inserted_count": 1, "errors": []})
+    )
+
+    # Act
+    with GoVecClient(
+        host=HOST,
+        port=PORT,
+        api_key="",
+        protocol="rest",
+        tls=False,
+        timeout=3.0,
+        batch_timeout=30.0,
+    ) as client:
+        client.insert_many([InsertRequest(id="a", vector=[1.0])])
+
+    # Assert
+    assert handshake.calls.last.request.extensions["timeout"]["read"] == 3.0
+    assert batch.calls.last.request.extensions["timeout"]["read"] == 30.0
+
+
+@pytest.mark.parametrize(
+    ("timeout", "batch_timeout", "named"),
+    [(0, 60.0, "timeout"), (-1, 60.0, "timeout"), (10.0, 0, "batch_timeout")],
+)
+def test_init__timeout_not_positive__raises_before_contacting_the_server(
+    server: respx.MockRouter, timeout: float, batch_timeout: float, named: str
+) -> None:
+    # Act
+    with pytest.raises(ValueError, match=f"^{named} must be positive"):
+        GoVecClient(
+            host=HOST,
+            port=PORT,
+            api_key="",
+            protocol="rest",
+            tls=False,
+            timeout=timeout,
+            batch_timeout=batch_timeout,
+        )
+
+    # Assert
+    assert not server.calls
+
+
 # --- NaN and infinity never reach a transport -----------------------------------
 #
 # Checked in the client rather than in either transport, so REST and gRPC reject

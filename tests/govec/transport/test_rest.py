@@ -25,6 +25,7 @@ from govec.models import (
     SearchRequest,
     SparseVector,
 )
+from govec.transport.base import Timeouts
 from govec.transport.json_codec import encode_request
 from govec.transport.rest import AsyncRESTTransport, RESTTransport
 from tests.govec.rest_api import HOST, PORT, error, info, ok
@@ -104,6 +105,76 @@ async def test_request__error_status__raises_api_error_not_connection_error(
     assert excinfo.value.status_code == 400
     assert "k is negative" in excinfo.value.message
     assert str(excinfo.value).startswith("HTTP 400")
+
+
+# --- timeouts -------------------------------------------------------------------
+#
+# httpx records the timeout it applied on each request, which is what these read.
+
+
+def _read_timeout(route: respx.Route) -> object:
+    return route.calls.last.request.extensions["timeout"]["read"]
+
+
+async def test_request__ordinary_call__uses_the_call_timeout(
+    server: respx.MockRouter, rest_transport: BuildTransport
+) -> None:
+    # Arrange
+    route = server.get("/health").mock(return_value=ok({"status": "ok"}))
+    transport = rest_transport(timeouts=Timeouts(call=3.0, batch=30.0))
+
+    # Act
+    await settle(transport.health())
+
+    # Assert
+    assert _read_timeout(route) == 3.0
+
+
+async def test_insert_batch__any_batch__uses_the_batch_timeout(
+    server: respx.MockRouter, rest_transport: BuildTransport
+) -> None:
+    # Arrange
+    # REST used to send a batch under the 10 s call timeout while gRPC gave it
+    # 60 s, so the same batch could time out on one transport only.
+    route = server.post("/api/v1/vectors/batch").mock(
+        return_value=ok({"inserted_count": 1, "errors": []})
+    )
+    transport = rest_transport(timeouts=Timeouts(call=3.0, batch=30.0))
+
+    # Act
+    await settle(transport.insert_batch([InsertRequest(id="a", vector=[1.0])]))
+
+    # Assert
+    assert _read_timeout(route) == 30.0
+
+
+async def test_request__timeout_is_none__waits_without_a_limit(
+    server: respx.MockRouter, rest_transport: BuildTransport
+) -> None:
+    # Arrange
+    route = server.get("/health").mock(return_value=ok({"status": "ok"}))
+    transport = rest_transport(timeouts=Timeouts(call=None))
+
+    # Act
+    await settle(transport.health())
+
+    # Assert
+    assert _read_timeout(route) is None
+
+
+async def test_request__server_times_out__reports_the_timeout_that_applied(
+    server: respx.MockRouter, rest_transport: BuildTransport
+) -> None:
+    # Arrange
+    server.post("/api/v1/vectors/batch").mock(side_effect=httpx.ReadTimeout)
+    transport = rest_transport(timeouts=Timeouts(call=3.0, batch=30.0))
+
+    # Act
+    with pytest.raises(GoVecTimeoutError) as excinfo:
+        await settle(transport.insert_batch([InsertRequest(id="a", vector=[1.0])]))
+
+    # Assert
+    assert "within 30.0s" in str(excinfo.value)
 
 
 # --- auth ---------------------------------------------------------------------

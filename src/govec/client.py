@@ -23,25 +23,35 @@ from govec.models import (
     FlushResponse,
     HealthResponse,
 )
-from govec.transport.base import BaseTransport
+from govec.transport.base import (
+    DEFAULT_BATCH_TIMEOUT,
+    DEFAULT_TIMEOUT,
+    BaseTransport,
+    Timeouts,
+)
 
 Protocol = Literal["rest", "grpc"]
 
 
 def _open_transport(
-    host: str, port: int, api_key: str, protocol: Protocol, tls: bool
+    host: str,
+    port: int,
+    api_key: str,
+    protocol: Protocol,
+    tls: bool,
+    timeouts: Timeouts,
 ) -> BaseTransport:
     # Imported here so a REST user never loads grpc and a gRPC user never
     # loads httpx.
     if protocol == "rest":
         from govec.transport.rest import RESTTransport
 
-        return RESTTransport(host, port, api_key, tls=tls)
+        return RESTTransport(host, port, api_key, tls=tls, timeouts=timeouts)
 
     if protocol == "grpc":
         from govec.transport.grpc import GRPCTransport
 
-        return GRPCTransport(host, port, api_key, tls=tls)
+        return GRPCTransport(host, port, api_key, tls=tls, timeouts=timeouts)
 
     assert_never(protocol)
 
@@ -64,9 +74,19 @@ class GoVecClient:
     _transport: BaseTransport
 
     def __init__(
-        self, host: str, port: int, api_key: str, protocol: Protocol, tls: bool = True
+        self,
+        host: str,
+        port: int,
+        api_key: str,
+        protocol: Protocol,
+        tls: bool = True,
+        timeout: float | None = DEFAULT_TIMEOUT,
+        batch_timeout: float | None = DEFAULT_BATCH_TIMEOUT,
     ):
-        transport = _open_transport(host, port, api_key, protocol, tls)
+        # Built first so a bad timeout raises before any connection is opened.
+        timeouts = Timeouts(call=timeout, batch=batch_timeout)
+
+        transport = _open_transport(host, port, api_key, protocol, tls, timeouts)
         self._attach(transport, host, port, protocol)
 
     @classmethod
