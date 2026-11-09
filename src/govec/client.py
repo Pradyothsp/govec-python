@@ -3,7 +3,9 @@ from typing import Any, Literal, Self, assert_never
 
 from govec.client_logic import (
     batches,
+    check_all_finite,
     check_batch_widths,
+    check_finite,
     check_width,
     merge_batches,
     was_deleted,
@@ -146,6 +148,8 @@ class GoVecClient:
             metadata=metadata,
         )
 
+        check_finite(request)
+
         self._transport.insert(request)
         return True
 
@@ -157,6 +161,7 @@ class GoVecClient:
         Returns a BatchInsertResponse with the total inserted count and any per-vector errors.
         """
         check_batch_widths(requests, self.dimensions, self.enable_mmap)
+        check_all_finite(requests)
 
         # A generator, so batches still go one at a time and the first failure
         # stops the rest from being sent.
@@ -181,6 +186,8 @@ class GoVecClient:
             k=k,
             filter=filter,
         )
+
+        check_finite(request)
 
         return self._transport.search(request)
 

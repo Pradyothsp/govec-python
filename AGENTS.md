@@ -32,14 +32,14 @@ A local server for the e2e suites:
 ```text
 src/govec/
   client.py          GoVecClient: the public API; picks a transport, runs the preflight handshake
-  client_logic.py    width checks, batching and the delete check around transport calls; pure functions
+  client_logic.py    width and NaN/infinity checks, batching and the delete check; pure functions
   models.py          request/response dataclasses; input validation lives in __post_init__
   exceptions.py      GoVecError and its subclasses, the only exceptions callers should see
   transport/
     base.py          BaseTransport ABC: the contract both transports implement
     rest.py          REST over httpx
     rest_mappers.py  REST response -> model mappers and the status/envelope check; pure functions
-    json_codec.py    request and response JSON (orjson), with the NaN/infinity check; pure functions
+    json_codec.py    request and response JSON (orjson); pure functions
     grpc.py          gRPC over the generated stubs
     grpc_mappers.py  model <-> proto message mappers and gRPC error -> GoVec exception; pure functions
     convert.py       Python values <-> google.protobuf.Value; pure functions, no I/O
@@ -114,11 +114,13 @@ decision, bug or measurement behind it, a trap, or surprising behaviour.
 
 - **Integers don't survive gRPC.** protobuf `Struct` stores numbers as doubles, so metadata
   `{"year": 2024}` comes back as `2024.0` over gRPC. REST preserves it. Pinned by a test.
-- **orjson writes NaN and infinity as `null`.** The server decodes `null` into a float32 as 0,
-  so a NaN vector would be stored or searched as zeros with no error. `json_codec.py`
-  checks requests before encoding and raises `ValueError`, as httpx's encoder did. Keep the
-  check if you touch request encoding. orjson is there for speed: `json.dumps` of a
-  1,536-float query cost ~1.1 ms of a ~5.4 ms search.
+- **The server accepts NaN and infinity, and neither transport stops them.** Over REST,
+  orjson writes them as `null`, which the server decodes into a float32 as 0, so the vector
+  is stored or searched as zeros. Over gRPC they arrive intact and are stored as NaN.
+  `client_logic.check_finite` rejects them with `ValueError` in the client, before a
+  transport is chosen, for `insert`, `insert_many` and `search`. Any new operation that
+  sends floats must call it too. orjson is there for speed: `json.dumps` of a 1,536-float
+  query cost ~1.1 ms of a ~5.4 ms search.
 - **The constructor talks to the server.** `GoVecClient(...)` fetches `info` as a preflight
   handshake, so a wrong host fails there. If the handshake raises, the constructor closes the
   transport itself; the caller never got an object to close.
