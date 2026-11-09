@@ -107,6 +107,74 @@ async def test_request__error_status__raises_api_error_not_connection_error(
     assert str(excinfo.value).startswith("HTTP 400")
 
 
+# --- responses that aren't GoVec's --------------------------------------------
+#
+# A proxy or load balancer in front of GoVec answers with its own body. Each of
+# these used to leak orjson.JSONDecodeError, KeyError or AttributeError.
+
+
+class _Foreign(NamedTuple):
+    response: httpx.Response
+    status_code: int
+    message: str
+
+
+_FOREIGN = {
+    "proxy-html-502": _Foreign(
+        httpx.Response(502, text="<html><body>502 Bad Gateway</body></html>"),
+        502,
+        "<html><body>502 Bad Gateway</body></html>",
+    ),
+    "empty-503": _Foreign(httpx.Response(503, content=b""), 503, "(empty body)"),
+    "json-but-not-an-envelope-500": _Foreign(
+        httpx.Response(500, json=["oops"]), 500, '["oops"]'
+    ),
+    "html-200": _Foreign(
+        httpx.Response(200, text="<html>captive portal</html>"),
+        200,
+        "expected a GoVec JSON response, got: <html>captive portal</html>",
+    ),
+    "envelope-without-data-200": _Foreign(
+        httpx.Response(200, json={"success": True}),
+        200,
+        'expected a GoVec JSON response, got: {"success":true}',
+    ),
+}
+
+
+@pytest.mark.parametrize("foreign", _FOREIGN.values(), ids=_FOREIGN.keys())
+async def test_request__response_is_not_govecs__raises_api_error_with_the_body(
+    server: respx.MockRouter, rest_transport: BuildTransport, foreign: _Foreign
+) -> None:
+    # Arrange
+    server.get("/health").mock(return_value=foreign.response)
+    transport = rest_transport()
+
+    # Act
+    with pytest.raises(GoVecAPIError) as excinfo:
+        await settle(transport.health())
+
+    # Assert
+    assert excinfo.value.status_code == foreign.status_code
+    assert excinfo.value.message == foreign.message
+
+
+async def test_request__error_page_is_long__message_keeps_only_its_start(
+    server: respx.MockRouter, rest_transport: BuildTransport
+) -> None:
+    # Arrange
+    page = "<html>" + "x" * 5000 + "</html>"
+    server.get("/health").mock(return_value=httpx.Response(502, text=page))
+    transport = rest_transport()
+
+    # Act
+    with pytest.raises(GoVecAPIError) as excinfo:
+        await settle(transport.health())
+
+    # Assert
+    assert excinfo.value.message == page[:200] + "..."
+
+
 # --- timeouts -------------------------------------------------------------------
 #
 # httpx records the timeout it applied on each request, which is what these read.
