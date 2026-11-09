@@ -52,6 +52,7 @@ dev = [
     "types-protobuf>=7.35.1.20260906",
 ]
 test = [
+    "anyio>=4.14.2",
     "pytest>=9.0.2",
 ]
 

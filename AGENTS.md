@@ -97,6 +97,8 @@ decision, bug or measurement behind it, a trap, or surprising behaviour.
 
 - Names read `test_<unit>__<condition>__<expected>`; bodies are marked Arrange / Act /
   Assert.
+- Async tests are `async def` with `@pytest.mark.anyio`. The `anyio_backend` fixture in
+  `tests/conftest.py` pins them to asyncio, because `grpc.aio` doesn't run on trio.
 - REST unit tests use the `rest_transport` fixture (`transport/conftest.py`): the real
   transport over `httpx.MockTransport`, so request building and parsing are tested without
   a server.
