@@ -1,15 +1,23 @@
+from collections.abc import Callable
+from typing import cast
+
 import grpc
+import grpc.aio
 import pytest
 
 from govec.exceptions import GoVecAPIError, GoVecConnectionError, GoVecTimeoutError
-from govec.transport.grpc import GRPCTransport
+from govec.transport.grpc_mappers import raise_rpc_error, status_of
+
+type BuildError = Callable[[grpc.StatusCode, str], grpc.RpcError]
+
+_TARGET = "testserver:9698"
 
 
 class _FakeRpcError(grpc.RpcError):
-    """A gRPC failure, without a server to produce one.
+    """A failed sync call, without a server to produce one.
 
-    `grpc.RpcError` carries no status by itself -- `_handle_rpc_error` reads
-    the code and details off the `grpc.Call` interface, which real errors also
+    `grpc.RpcError` carries no status by itself -- the mapping reads the code
+    and details off the `grpc.Call` interface, which real sync errors also
     implement. Driving the mapping directly beats provoking each status from a
     live server, which for DEADLINE_EXCEEDED would mean an actually slow
     request.
@@ -35,61 +43,90 @@ class _FakeRpcError(grpc.RpcError):
 grpc.Call.register(_FakeRpcError)
 
 
-@pytest.fixture
-def transport() -> GRPCTransport:
-    # Creating a channel does not connect, so this needs no server.
-    return GRPCTransport("testserver", 9698, tls=False)
+def _aio_error(code: grpc.StatusCode, details: str) -> grpc.RpcError:
+    # The real type grpc.aio raises. It is not a grpc.Call, which is exactly
+    # what a fake registered as one would hide.
+    return grpc.aio.AioRpcError(code, grpc.aio.Metadata(), grpc.aio.Metadata(), details)
 
 
-def test_handle_rpc_error__unavailable__raises_connection_error(
-    transport: GRPCTransport,
+@pytest.fixture(params=[_FakeRpcError, _aio_error], ids=["sync", "aio"])
+def build_error(request: pytest.FixtureRequest) -> BuildError:
+    return cast(BuildError, request.param)
+
+
+def test_raise_rpc_error__unavailable__raises_connection_error(
+    build_error: BuildError,
 ) -> None:
     # Arrange
-    error = _FakeRpcError(grpc.StatusCode.UNAVAILABLE, "failed to connect")
+    error = build_error(grpc.StatusCode.UNAVAILABLE, "failed to connect")
 
     # Act / Assert
     with pytest.raises(GoVecConnectionError):
-        transport._handle_rpc_error(error)
+        raise_rpc_error(error, _TARGET)
 
 
-def test_handle_rpc_error__deadline_exceeded__raises_timeout_error(
-    transport: GRPCTransport,
+def test_raise_rpc_error__deadline_exceeded__raises_timeout_error(
+    build_error: BuildError,
 ) -> None:
+    # Arrange
     # Previously reported as GoVecAPIError(4), which claimed the server had
     # answered with an error when it had not answered at all. REST reports a
     # timeout as GoVecTimeoutError and the two transports must agree.
-    error = _FakeRpcError(grpc.StatusCode.DEADLINE_EXCEEDED, "deadline exceeded")
+    error = build_error(grpc.StatusCode.DEADLINE_EXCEEDED, "deadline exceeded")
 
     # Act / Assert
     with pytest.raises(GoVecTimeoutError):
-        transport._handle_rpc_error(error)
+        raise_rpc_error(error, _TARGET)
 
 
-def test_handle_rpc_error__not_found__raises_api_error_labelled_grpc(
-    transport: GRPCTransport,
+def test_raise_rpc_error__not_found__raises_api_error_labelled_grpc(
+    build_error: BuildError,
 ) -> None:
     # Arrange
-    error = _FakeRpcError(grpc.StatusCode.NOT_FOUND, "vector not found")
+    error = build_error(grpc.StatusCode.NOT_FOUND, "vector not found")
 
     # Act
     with pytest.raises(GoVecAPIError) as excinfo:
-        transport._handle_rpc_error(error)
+        raise_rpc_error(error, _TARGET)
 
     # Assert -- labelled so a gRPC NOT_FOUND does not render as "HTTP 5"
     assert excinfo.value.status_label == "gRPC"
     assert str(excinfo.value).startswith("gRPC 5")
 
 
-def test_handle_rpc_error__invalid_argument__raises_api_error(
-    transport: GRPCTransport,
+def test_raise_rpc_error__invalid_argument__raises_api_error(
+    build_error: BuildError,
 ) -> None:
     # Arrange
-    error = _FakeRpcError(grpc.StatusCode.INVALID_ARGUMENT, "dimension mismatch")
+    error = build_error(grpc.StatusCode.INVALID_ARGUMENT, "dimension mismatch")
 
     # Act
     with pytest.raises(GoVecAPIError) as excinfo:
-        transport._handle_rpc_error(error)
+        raise_rpc_error(error, _TARGET)
 
     # Assert
     assert excinfo.value.status_code == grpc.StatusCode.INVALID_ARGUMENT.value[0]
     assert "dimension mismatch" in excinfo.value.message
+
+
+def test_status_of__failed_call__returns_its_code(build_error: BuildError) -> None:
+    # Arrange
+    # get_by_id reads this to turn NOT_FOUND into None on both transports.
+    error = build_error(grpc.StatusCode.NOT_FOUND, "vector not found")
+
+    # Act
+    code = status_of(error)
+
+    # Assert
+    assert code == grpc.StatusCode.NOT_FOUND
+
+
+def test_status_of__error_without_a_status__returns_none() -> None:
+    # Arrange
+    error = grpc.RpcError()
+
+    # Act
+    code = status_of(error)
+
+    # Assert
+    assert code is None
