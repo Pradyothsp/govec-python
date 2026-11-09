@@ -80,6 +80,7 @@ dev = [
     { name = "types-protobuf" },
 ]
 test = [
+    { name = "anyio" },
     { name = "pytest" },
 ]
 
@@ -99,7 +100,10 @@ dev = [
     { name = "ty", specifier = ">=0.0.84" },
     { name = "types-protobuf", specifier = ">=7.35.1.20260906" },
 ]
-test = [{ name = "pytest", specifier = ">=9.0.2" }]
+test = [
+    { name = "anyio", specifier = ">=4.14.2" },
+    { name = "pytest", specifier = ">=9.0.2" },
+]
 
 [[package]]
 name = "grpcio"
