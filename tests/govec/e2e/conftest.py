@@ -1,12 +1,19 @@
 import random
-from collections.abc import Callable
-from typing import Any
+from collections.abc import AsyncIterator, Awaitable, Callable
+from typing import Any, cast
 from uuid import uuid4
 
 import pytest
 
-from govec.client import GoVecClient
 from govec.models import InsertRequest
+from tests.govec.sync_or_async import (
+    CLIENT_KINDS,
+    AnyClient,
+    ClientKind,
+    connect_client,
+    settle,
+    shut,
+)
 
 # The width every e2e test uses, REST and gRPC alike.
 #
@@ -24,18 +31,37 @@ from govec.models import InsertRequest
 E2E_DIMENSIONS = 1536
 
 
-@pytest.fixture(scope="session")
-def govec_e2e_client() -> GoVecClient:
-    return GoVecClient(
-        host="localhost", port=9697, api_key="", protocol="rest", tls=False
-    )
+REST_PORT = 9697
+GRPC_PORT = 9698
 
 
-@pytest.fixture(scope="session")
-def govec_grpc_client() -> GoVecClient:
-    return GoVecClient(
-        host="localhost", port=9698, api_key="", protocol="grpc", tls=False
-    )
+@pytest.fixture(params=CLIENT_KINDS)
+def client_kind(request: pytest.FixtureRequest) -> ClientKind:
+    """Which client every e2e test runs on: each runs once per kind.
+
+    Shared by both client fixtures, so a test that compares REST with gRPC
+    gets two runs (sync with sync, async with async), not four.
+    """
+    return cast(ClientKind, request.param)
+
+
+# Function-scoped, so one handshake per test. A session-scoped async client
+# would have to share one event loop across the whole session, and against a
+# local server the handshake costs a millisecond.
+@pytest.fixture
+async def govec_e2e_client(client_kind: ClientKind) -> AsyncIterator[AnyClient]:
+    client = await connect_client(client_kind, "localhost", REST_PORT, "rest")
+    yield client
+
+    await shut(client)
+
+
+@pytest.fixture
+async def govec_grpc_client(client_kind: ClientKind) -> AsyncIterator[AnyClient]:
+    client = await connect_client(client_kind, "localhost", GRPC_PORT, "grpc")
+    yield client
+
+    await shut(client)
 
 
 @pytest.fixture
@@ -73,17 +99,19 @@ def build_insert_request(
 
 @pytest.fixture
 def inserted_vector(
-    govec_grpc_client: GoVecClient,
+    govec_grpc_client: AnyClient,
     build_insert_request: Callable[..., InsertRequest],
-) -> Callable[..., InsertRequest]:
+) -> Callable[..., Awaitable[InsertRequest]]:
     """Inserts a vector over gRPC and returns the request that produced it."""
 
-    def _insert(metadata: dict[str, Any] | None = None) -> InsertRequest:
+    async def _insert(metadata: dict[str, Any] | None = None) -> InsertRequest:
         request = build_insert_request(metadata=metadata)
-        govec_grpc_client.insert(
-            vector_id=request.id,
-            dense_vector=request.vector,
-            metadata=request.metadata,
+        await settle(
+            govec_grpc_client.insert(
+                vector_id=request.id,
+                dense_vector=request.vector,
+                metadata=request.metadata,
+            )
         )
         return request
 

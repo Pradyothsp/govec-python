@@ -6,9 +6,11 @@ organized, the rules it follows, and the traps to avoid. User-facing docs are in
 ## What this is
 
 `govec` is the Python client for [GoVec](https://github.com/Pradyothsp/govec), a single-node
-vector search engine. One `GoVecClient`, two transports: REST (`httpx`) and gRPC. Switching
-`protocol=` must change the wire format and **nothing else**: same methods, same return
-values, same exceptions. Most rules below exist to protect that.
+vector search engine. Two clients, `GoVecClient` and `AsyncGoVecClient`, each over two
+transports: REST (`httpx`) and gRPC. Switching `protocol=` must change the wire format and
+**nothing else**: same methods, same return values, same exceptions. The async client is the
+sync one with every call awaited, and nothing else differs either. Most rules below exist to
+protect that.
 
 The server is the authority. The SDK validates only what it can check cheaply and locally;
 it never second-guesses the server's answers.
@@ -32,6 +34,7 @@ A local server for the e2e suites:
 ```text
 src/govec/
   client.py          GoVecClient: the public API; picks a transport, runs the preflight handshake
+  async_client.py    AsyncGoVecClient: the same API awaited; connect() returns an awaitable / async CM
   client_logic.py    width and NaN/infinity checks, batching and the delete check; pure functions
   models.py          request/response dataclasses; input validation lives in __post_init__
   exceptions.py      GoVecError and its subclasses, the only exceptions callers should see
@@ -49,10 +52,10 @@ tests/
   govec/rest_api.py  respx building blocks: BASE_URL, ok(), error(), info()
   govec/grpc_server.py   the scripted GoVecServicer behind `grpc_server`: canned replies, recorded calls
   govec/sync_or_async.py   settle() and shut(): one test body for a sync or async transport
-  govec/test_client.py   the real client over the real REST transport, network faked
+  govec/test_client.py   both clients over their real transports, network faked; one test per behaviour
   govec/test_client_logic.py   the shared client rules, once for both clients
   govec/transport/   unit tests per transport module
-  govec/e2e/rest/, govec/e2e/grpc/   one file per operation, against a live server
+  govec/e2e/rest/, govec/e2e/grpc/   one file per operation, against a live server, on both clients
 .github/workflows/   ci.yml (every push/PR), release.yml (v* tags -> PyPI)
 ```
 
@@ -67,7 +70,7 @@ gRPC sends an empty map; both become `None`.
 `AsyncBaseTransport` (`transport/base.py`); its implementation in all four transports
 (`RESTTransport` and `AsyncRESTTransport` in `rest.py`, `GRPCTransport` and
 `AsyncGRPCTransport` in `grpc.py`); its mappers in `rest_mappers.py` and `grpc_mappers.py`;
-the method on `GoVecClient`; a row in `_OPERATIONS` in both `transport/test_rest.py` and
+the method on both `GoVecClient` and `AsyncGoVecClient`; a row in `_OPERATIONS` in both `transport/test_rest.py` and
 `transport/test_grpc.py`, plus a default reply in `tests/govec/grpc_server.py`; and an e2e
 test in *both* `e2e/rest/` and `e2e/grpc/`. Both bases
 are ABCs, so a missing implementation fails at construction rather than at call time.
@@ -130,6 +133,11 @@ decision, bug or measurement behind it, a trap, or surprising behaviour.
   `GoVecClient._from_transport`. The public constructor raises before handing anything back.
 - E2e tests carry `@pytest.mark.e2e`, and `addopts = ["-m", "not e2e"]` deselects them, so a
   bare `pytest` never needs a server. The e2e tasks pass `-m e2e`.
+- **Every e2e test runs on both clients.** `client_kind` (`e2e/conftest.py`) parametrises
+  `govec_e2e_client` and `govec_grpc_client` together, so a test using both gets sync with
+  sync and async with async. The client fixtures are function-scoped: an async client is
+  bound to one event loop, and a handshake per test costs a millisecond locally. Build a
+  one-off client with `connect_client(kind, ...)` from `tests/govec/sync_or_async.py`.
 - Both e2e suites share one server for the session, and the gRPC suite resets it. **Every
   test inserts the data it asserts on.**
 - E2e vectors use the `E2E_DIMENSIONS` constant, never `client.dimensions`: that reads `0`
@@ -149,9 +157,14 @@ decision, bug or measurement behind it, a trap, or surprising behaviour.
   transport is chosen, for `insert`, `insert_many` and `search`. Any new operation that
   sends floats must call it too. orjson is there for speed: `json.dumps` of a 1,536-float
   query cost ~1.1 ms of a ~5.4 ms search.
-- **The constructor talks to the server.** `GoVecClient(...)` fetches `info` as a preflight
-  handshake, so a wrong host fails there. If the handshake raises, the constructor closes the
-  transport itself; the caller never got an object to close.
+- **Connecting talks to the server.** `GoVecClient.connect(...)` (or `GoVecClient(...)`) and
+  `await AsyncGoVecClient.connect(...)` fetch `info` as a preflight handshake, so a wrong host
+  fails there, and every client that exists has completed it. If the handshake raises,
+  `_from_transport` closes the transport itself; the caller never got an object to close.
+- **`AsyncGoVecClient(...)` is not the way in.** Its constructor takes an open transport and
+  the handshake's `InfoResponse`; only `connect()` builds one. `connect()` returns a
+  `_Connecting`, which is awaitable and an async context manager, so a forgotten `await`
+  is a type error (`_Connecting` has no `search`) rather than an unconnected client.
 - **The client-side dimension check only runs with `enable_mmap` on.** It is a
   convenience; the server enforces width and answers 400 / `InvalidArgument`.
 - **`AsyncGRPCTransport` must be built inside a running event loop.** A `grpc.aio` channel

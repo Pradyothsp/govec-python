@@ -2,13 +2,18 @@ import random
 
 import pytest
 
-from govec.client import GoVecClient
 from govec.models import InsertRequest, SparseVector
 from tests.govec.e2e.conftest import E2E_DIMENSIONS
+from tests.govec.sync_or_async import AnyClient, settle
+
+# Every test runs once per client kind; see `client_kind` in e2e/conftest.py.
+pytestmark = pytest.mark.anyio
 
 
 @pytest.mark.e2e
-def test_insert__dense_and_sparse_vector__returns_true(govec_e2e_client: GoVecClient):
+async def test_insert__dense_and_sparse_vector__returns_true(
+    govec_e2e_client: AnyClient,
+):
     # Arrange
     dense_vector = [random.random() for _ in range(E2E_DIMENSIONS)]
     sparse_vector = SparseVector(
@@ -17,10 +22,12 @@ def test_insert__dense_and_sparse_vector__returns_true(govec_e2e_client: GoVecCl
     )
 
     # Act
-    result = govec_e2e_client.insert(
-        vector_id="test-insert-001",
-        dense_vector=dense_vector,
-        sparse_vector=sparse_vector,
+    result = await settle(
+        govec_e2e_client.insert(
+            vector_id="test-insert-001",
+            dense_vector=dense_vector,
+            sparse_vector=sparse_vector,
+        )
     )
 
     # Assert
@@ -28,8 +35,8 @@ def test_insert__dense_and_sparse_vector__returns_true(govec_e2e_client: GoVecCl
 
 
 @pytest.mark.e2e
-def test_insert_many__batch_of_vectors__inserts_all_without_errors(
-    govec_e2e_client: GoVecClient,
+async def test_insert_many__batch_of_vectors__inserts_all_without_errors(
+    govec_e2e_client: AnyClient,
 ):
     # Arrange
     sparse_vector = SparseVector(indices=[0, 10, 42], values=[0.5, 0.3, 0.2])
@@ -44,7 +51,7 @@ def test_insert_many__batch_of_vectors__inserts_all_without_errors(
     ]
 
     # Act
-    result = govec_e2e_client.insert_many(requests)
+    result = await settle(govec_e2e_client.insert_many(requests))
 
     # Assert
     assert result.inserted_count == len(requests)
@@ -52,8 +59,8 @@ def test_insert_many__batch_of_vectors__inserts_all_without_errors(
 
 
 @pytest.mark.e2e
-def test_insert_many__one_vector_has_wrong_width__reports_only_that_one(
-    govec_e2e_client: GoVecClient,
+async def test_insert_many__one_vector_has_wrong_width__reports_only_that_one(
+    govec_e2e_client: AnyClient,
 ):
     # Arrange
     sparse_vector = SparseVector(indices=[0, 10, 42], values=[0.5, 0.3, 0.2])
@@ -75,11 +82,12 @@ def test_insert_many__one_vector_has_wrong_width__reports_only_that_one(
         )
     )
 
-    # Bypass client-side dimension check so the bad vector reaches the server
+    # Act -- with the client-side dimension check bypassed, so the bad vector
+    # reaches the server
     original_enable_mmap = govec_e2e_client.enable_mmap
     govec_e2e_client.enable_mmap = False
     try:
-        result = govec_e2e_client.insert_many(requests)
+        result = await settle(govec_e2e_client.insert_many(requests))
     finally:
         govec_e2e_client.enable_mmap = original_enable_mmap
 

@@ -2,27 +2,32 @@ import random
 
 import pytest
 
-from govec.client import GoVecClient
 from govec.models import GetByIdResponse, SparseVector
 from tests.govec.e2e.conftest import E2E_DIMENSIONS
+from tests.govec.sync_or_async import AnyClient, settle
+
+# Every test runs once per client kind; see `client_kind` in e2e/conftest.py.
+pytestmark = pytest.mark.anyio
 
 
 @pytest.mark.e2e
-def test_get_by_id__existing_vector__returns_vector_and_sparse(
-    govec_e2e_client: GoVecClient,
+async def test_get_by_id__existing_vector__returns_vector_and_sparse(
+    govec_e2e_client: AnyClient,
 ):
     # Arrange — insert a known vector
     dense_vector = [random.random() for _ in range(E2E_DIMENSIONS)]
     sparse_vector = SparseVector(indices=[0, 10, 42], values=[0.5, 0.3, 0.2])
 
-    govec_e2e_client.insert(
-        vector_id="test-get-by-id-001",
-        dense_vector=dense_vector,
-        sparse_vector=sparse_vector,
+    await settle(
+        govec_e2e_client.insert(
+            vector_id="test-get-by-id-001",
+            dense_vector=dense_vector,
+            sparse_vector=sparse_vector,
+        )
     )
 
     # Act
-    result = govec_e2e_client.get_by_id("test-get-by-id-001")
+    result = await settle(govec_e2e_client.get_by_id("test-get-by-id-001"))
 
     # Assert
     assert isinstance(result, GetByIdResponse)
@@ -34,23 +39,25 @@ def test_get_by_id__existing_vector__returns_vector_and_sparse(
 
 
 @pytest.mark.e2e
-def test_get_by_id__vector_has_metadata__returns_the_metadata(
-    govec_e2e_client: GoVecClient,
+async def test_get_by_id__vector_has_metadata__returns_the_metadata(
+    govec_e2e_client: AnyClient,
 ):
     # Arrange
     dense_vector = [random.random() for _ in range(E2E_DIMENSIONS)]
     sparse_vector = SparseVector(indices=[1, 5], values=[0.7, 0.3])
     metadata = {"source": "test", "category": "e2e"}
 
-    govec_e2e_client.insert(
-        vector_id="test-get-by-id-meta-001",
-        dense_vector=dense_vector,
-        sparse_vector=sparse_vector,
-        metadata=metadata,
+    await settle(
+        govec_e2e_client.insert(
+            vector_id="test-get-by-id-meta-001",
+            dense_vector=dense_vector,
+            sparse_vector=sparse_vector,
+            metadata=metadata,
+        )
     )
 
     # Act
-    result = govec_e2e_client.get_by_id("test-get-by-id-meta-001")
+    result = await settle(govec_e2e_client.get_by_id("test-get-by-id-meta-001"))
 
     # Assert
     assert isinstance(result, GetByIdResponse)
@@ -59,21 +66,23 @@ def test_get_by_id__vector_has_metadata__returns_the_metadata(
 
 
 @pytest.mark.e2e
-def test_get_by_id__dense_only_vector__returns_no_sparse_component(
-    govec_e2e_client: GoVecClient,
+async def test_get_by_id__dense_only_vector__returns_no_sparse_component(
+    govec_e2e_client: AnyClient,
 ):
     # Arrange -- the server always emits a sparse_vector key, so a dense-only
     # record arrives as {"indices": null, "values": null}. Building a
     # SparseVector from that raises, which used to make get_by_id fail on
     # every vector inserted without a sparse component.
     dense_vector = [random.random() for _ in range(E2E_DIMENSIONS)]
-    govec_e2e_client.insert(
-        vector_id="test-get-by-id-dense-only",
-        dense_vector=dense_vector,
+    await settle(
+        govec_e2e_client.insert(
+            vector_id="test-get-by-id-dense-only",
+            dense_vector=dense_vector,
+        )
     )
 
     # Act
-    result = govec_e2e_client.get_by_id("test-get-by-id-dense-only")
+    result = await settle(govec_e2e_client.get_by_id("test-get-by-id-dense-only"))
 
     # Assert
     assert isinstance(result, GetByIdResponse)
@@ -81,9 +90,9 @@ def test_get_by_id__dense_only_vector__returns_no_sparse_component(
 
 
 @pytest.mark.e2e
-def test_get_by_id__missing_vector__returns_none(govec_e2e_client: GoVecClient):
+async def test_get_by_id__missing_vector__returns_none(govec_e2e_client: AnyClient):
     # Act
-    result = govec_e2e_client.get_by_id("non-existent-id-xyz")
+    result = await settle(govec_e2e_client.get_by_id("non-existent-id-xyz"))
 
     # Assert
     assert result is None
