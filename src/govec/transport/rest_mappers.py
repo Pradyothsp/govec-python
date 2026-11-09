@@ -12,6 +12,7 @@ server adds in a later release must not break a client built before it.
 from typing import Any, NoReturn
 
 import httpx
+import orjson
 
 from govec.exceptions import GoVecAPIError, GoVecConnectionError, GoVecTimeoutError
 from govec.models import (
@@ -50,14 +51,52 @@ def raise_request_error(
     ) from e
 
 
+_SNIPPET_CHARS = 200
+
+
 def unwrap(response: httpx.Response, expected_status: int = 200) -> Any:
-    """Return the envelope's `data`, or raise GoVecAPIError for any other status."""
-    response_json = decode(response.content)
+    """Return the envelope's `data`, or raise GoVecAPIError.
+
+    Not every response comes from GoVec: a proxy or load balancer in front of
+    it answers with its own HTML page, or an empty body, for a 502 or 503.
+    Decoding those used to leak orjson.JSONDecodeError, and a body that was
+    JSON but not GoVec's envelope leaked KeyError or AttributeError. Whatever
+    arrives, the caller gets GoVecAPIError carrying the status, and the
+    server's message or else the start of the body.
+    """
+    try:
+        body = decode(response.content)
+    except orjson.JSONDecodeError:
+        body = None
 
     if response.status_code != expected_status:
-        raise GoVecAPIError(response.status_code, response_json.get("error", ""))
+        raise GoVecAPIError(response.status_code, _error_message(body, response))
 
-    return response_json["data"]
+    if not isinstance(body, dict) or "data" not in body:
+        raise GoVecAPIError(
+            response.status_code,
+            f"expected a GoVec JSON response, got: {_snippet(response)}",
+        )
+
+    return body["data"]
+
+
+def _error_message(body: Any, response: httpx.Response) -> str:
+    if isinstance(body, dict) and isinstance(error := body.get("error"), str):
+        return error
+
+    return _snippet(response)
+
+
+def _snippet(response: httpx.Response) -> str:
+    text = response.text.strip()
+    if not text:
+        return "(empty body)"
+
+    if len(text) > _SNIPPET_CHARS:
+        return text[:_SNIPPET_CHARS] + "..."
+
+    return text
 
 
 def health_from_json(data: Any) -> HealthResponse:
