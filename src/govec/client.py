@@ -23,8 +23,27 @@ from govec.models import (
     FlushResponse,
     HealthResponse,
 )
+from govec.transport.base import BaseTransport
 
 Protocol = Literal["rest", "grpc"]
+
+
+def _open_transport(
+    host: str, port: int, api_key: str, protocol: Protocol, tls: bool
+) -> BaseTransport:
+    # Imported here so a REST user never loads grpc and a gRPC user never
+    # loads httpx.
+    if protocol == "rest":
+        from govec.transport.rest import RESTTransport
+
+        return RESTTransport(host, port, api_key, tls=tls)
+
+    if protocol == "grpc":
+        from govec.transport.grpc import GRPCTransport
+
+        return GRPCTransport(host, port, api_key, tls=tls)
+
+    assert_never(protocol)
 
 
 class GoVecClient:
@@ -37,25 +56,40 @@ class GoVecClient:
     The client is designed to be straightforward to use and integrates seamlessly with the GoVec platform.
     """
 
+    host: str
+    port: int
+    protocol: Protocol
+    dimensions: int
+    enable_mmap: bool
+    _transport: BaseTransport
+
     def __init__(
         self, host: str, port: int, api_key: str, protocol: Protocol, tls: bool = True
     ):
+        transport = _open_transport(host, port, api_key, protocol, tls)
+        self._attach(transport, host, port, protocol)
+
+    @classmethod
+    def _from_transport(
+        cls, transport: BaseTransport, host: str, port: int, protocol: Protocol
+    ) -> Self:
+        """Build a client over a transport that is already open.
+
+        Not public. The constructor raises before returning anything when the
+        handshake fails, so this is the only way for a test to hold the
+        transport afterwards and see that it was closed.
+        """
+        client = cls.__new__(cls)
+        client._attach(transport, host, port, protocol)
+        return client
+
+    def _attach(
+        self, transport: BaseTransport, host: str, port: int, protocol: Protocol
+    ) -> None:
         self.host = host
         self.port = port
         self.protocol = protocol
-
-        if self.protocol == "rest":
-            from govec.transport.rest import RESTTransport
-
-            self._transport = RESTTransport(host, port, api_key, tls=tls)
-
-        elif self.protocol == "grpc":
-            from govec.transport.grpc import GRPCTransport
-
-            self._transport = GRPCTransport(host, port, api_key, tls=tls)
-
-        else:
-            assert_never(self.protocol)
+        self._transport = transport
 
         # The Pre-Flight Handshake
         try:
