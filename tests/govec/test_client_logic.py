@@ -2,7 +2,9 @@ import pytest
 
 from govec.client_logic import (
     batches,
+    check_all_finite,
     check_batch_widths,
+    check_finite,
     check_width,
     merge_batches,
     was_deleted,
@@ -12,6 +14,8 @@ from govec.models import (
     BatchInsertResponse,
     DeleteResponse,
     InsertRequest,
+    SearchRequest,
+    SparseVector,
 )
 
 
@@ -54,6 +58,61 @@ def test_check_batch_widths__mmap_off__leaves_it_to_the_server() -> None:
 
     # Act / Assert -- no raise
     check_batch_widths(requests, dimensions=3, enable_mmap=False)
+
+
+# --- NaN and infinity ----------------------------------------------------------
+#
+# The server accepts both. Over REST orjson writes them as null, which the server
+# reads as 0; over gRPC they arrive intact and are stored as NaN.
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_check_finite__vector_has_nan_or_infinity__raises_value_error(
+    bad: float,
+) -> None:
+    # Arrange
+    request = SearchRequest(vector=[1.0, bad], k=1)
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="vector contains NaN or infinity"):
+        check_finite(request)
+
+
+def test_check_finite__sparse_values_have_nan__raises_value_error() -> None:
+    # Arrange
+    sparse = SparseVector(indices=[1], values=[float("nan")])
+    request = InsertRequest(id="a", vector=[1.0], sparse_vector=sparse)
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="sparse_vector contains NaN"):
+        check_finite(request)
+
+
+def test_check_finite__filter_has_infinity__raises_value_error() -> None:
+    # Arrange
+    request = SearchRequest(vector=[1.0], k=1, filter={"score": float("inf")})
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="metadata or filter contains NaN"):
+        check_finite(request)
+
+
+def test_check_finite__metadata_has_none__is_not_mistaken_for_nan() -> None:
+    # Arrange
+    request = InsertRequest(id="a", vector=[1.0], metadata={"note": None})
+
+    # Act / Assert -- no raise
+    check_finite(request)
+
+
+def test_check_all_finite__nested_metadata_has_nan__raises_value_error() -> None:
+    # Arrange
+    good = InsertRequest(id="a", vector=[1.0])
+    bad = InsertRequest(id="b", vector=[1.0], metadata={"s": [1.0, float("nan")]})
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="metadata or filter contains NaN"):
+        check_all_finite([good, bad])
 
 
 # --- batching -----------------------------------------------------------------

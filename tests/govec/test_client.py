@@ -32,6 +32,7 @@ class _RecordingTransport(BaseTransport):
 
     def __init__(self, *, fail_preflight: bool = False) -> None:
         self.released = False
+        self.sent: list[InsertRequest | SearchRequest] = []
         self._fail_preflight = fail_preflight
 
     @override
@@ -76,15 +77,18 @@ class _RecordingTransport(BaseTransport):
 
     @override
     def insert(self, request: InsertRequest) -> InsertResponse:
-        raise NotImplementedError
+        self.sent.append(request)
+        return InsertResponse(status="inserted")
 
     @override
     def insert_batch(self, requests: list[InsertRequest]) -> BatchInsertResponse:
-        raise NotImplementedError
+        self.sent.extend(requests)
+        return BatchInsertResponse(inserted_count=len(requests), errors=[])
 
     @override
     def search(self, request: SearchRequest) -> list[SearchResponse]:
-        raise NotImplementedError
+        self.sent.append(request)
+        return []
 
     @override
     def delete(self, vector_id: str) -> DeleteResponse:
@@ -194,3 +198,50 @@ def test_init__unknown_protocol__is_rejected() -> None:
             protocol="carrier-pigeon",  # ty: ignore[invalid-argument-type]
             tls=False,
         )
+
+
+# --- NaN and infinity never reach a transport -----------------------------------
+#
+# Checked in the client rather than in either transport, so REST and gRPC reject
+# them the same way. The fake transport stands in for both.
+
+
+def test_insert__vector_has_nan__raises_and_sends_nothing(client_with) -> None:
+    # Arrange
+    client, transport = client_with()
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="vector contains NaN or infinity"):
+        client.insert(vector_id="a", dense_vector=[1.0, float("nan")])
+
+    assert transport.sent == []
+
+
+def test_insert_many__nan_in_a_later_batch__raises_before_any_batch_is_sent(
+    client_with,
+) -> None:
+    # Arrange
+    # Checked per batch while encoding, the first batch had already gone out by
+    # the time the bad record in the second one raised.
+    client, transport = client_with()
+    requests = [
+        InsertRequest(id="a", vector=[1.0]),
+        InsertRequest(id="b", vector=[float("inf")]),
+    ]
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="vector contains NaN or infinity"):
+        client.insert_many(requests, batch_size=1)
+
+    assert transport.sent == []
+
+
+def test_search__filter_has_nan__raises_and_sends_nothing(client_with) -> None:
+    # Arrange
+    client, transport = client_with()
+
+    # Act / Assert
+    with pytest.raises(ValueError, match="metadata or filter contains NaN"):
+        client.search(dense_vector=[1.0], filter={"score": float("nan")})
+
+    assert transport.sent == []

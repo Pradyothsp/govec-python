@@ -1,18 +1,22 @@
-"""What the client does around each transport call: the local width checks,
-splitting a large insert into batches, and reading the delete answer.
+"""What the client does around each transport call: the local width and
+NaN/infinity checks, splitting a large insert into batches, and reading the
+delete answer.
 
 Kept apart from `client.py` so the sync and async clients share it: the two
 differ only in whether the transport call is awaited, and these rules must not
 drift between them.
 """
 
+import math
 from collections.abc import Iterable, Iterator
+from typing import Any
 
 from govec.models import (
     BatchInsertError,
     BatchInsertResponse,
     DeleteResponse,
     InsertRequest,
+    SearchRequest,
 )
 
 
@@ -37,6 +41,50 @@ def check_batch_widths(
 
     if bad := next((r for r in requests if len(r.vector) != dimensions), None):
         raise ValueError(f"Vector {bad.id} has wrong dimensions.")
+
+
+def check_finite(request: InsertRequest | SearchRequest) -> None:
+    """Raise ValueError if a request carries NaN or an infinity.
+
+    The server accepts both and neither transport can be trusted to stop
+    them. REST: JSON has no NaN, and orjson writes it as null, which the
+    server reads into a float32 as 0, so the vector is stored or searched as
+    zeros. gRPC: the NaN arrives intact, and the server stores it; a cosine
+    distance against it then reads as a zero vector's, and a euclidean one
+    breaks ranking. Checked here, before the transport is chosen, so both
+    reject it the same way.
+
+    Vectors are checked with `map(math.isfinite)`, which stays in C; the
+    recursive walk is only for metadata and filters, which are small.
+    """
+    if request.vector is not None and not all(map(math.isfinite, request.vector)):
+        raise ValueError("vector contains NaN or infinity")
+
+    sparse = request.sparse_vector
+    if sparse is not None and not all(map(math.isfinite, sparse.values)):
+        raise ValueError("sparse_vector contains NaN or infinity")
+
+    extra = request.metadata if isinstance(request, InsertRequest) else request.filter
+    if _contains_non_finite(extra):
+        raise ValueError("metadata or filter contains NaN or infinity")
+
+
+def check_all_finite(requests: list[InsertRequest]) -> None:
+    for request in requests:
+        check_finite(request)
+
+
+def _contains_non_finite(value: Any) -> bool:
+    if isinstance(value, float):
+        return not math.isfinite(value)
+
+    if isinstance(value, dict):
+        return any(_contains_non_finite(v) for v in value.values())
+
+    if isinstance(value, (list, tuple)):
+        return any(_contains_non_finite(v) for v in value)
+
+    return False
 
 
 def batches(

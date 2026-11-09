@@ -1,7 +1,5 @@
 import json
 
-import pytest
-
 from govec.models import InsertRequest, SearchRequest, SparseVector
 from govec.transport.json_codec import decode, encode_batch, encode_request
 
@@ -61,54 +59,7 @@ def test_encode_batch__records__wraps_them_with_sparse_and_metadata() -> None:
     }
 
 
-# --- NaN and infinity ------------------------------------------------------------
-#
-# orjson writes them as null, which the server decodes into a float of 0 without
-# complaint. httpx's standard-library encoder refused them; the codec still does.
-
-
-@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
-def test_encode_request__vector_has_nan_or_infinity__raises_value_error(
-    bad: float,
-) -> None:
-    # Arrange
-    request = SearchRequest(vector=[1.0, bad], k=1)
-
-    # Act / Assert
-    with pytest.raises(ValueError, match="vector contains NaN or infinity"):
-        encode_request(request)
-
-
-def test_encode_request__sparse_values_have_nan__raises_value_error() -> None:
-    # Arrange
-    sparse = SparseVector(indices=[1], values=[float("nan")])
-    request = InsertRequest(id="a", vector=[1.0], sparse_vector=sparse)
-
-    # Act / Assert
-    with pytest.raises(ValueError, match="sparse_vector contains NaN"):
-        encode_request(request)
-
-
-def test_encode_request__filter_has_infinity__raises_value_error() -> None:
-    # Arrange
-    request = SearchRequest(vector=[1.0], k=1, filter={"score": float("inf")})
-
-    # Act / Assert
-    with pytest.raises(ValueError, match="metadata or filter contains NaN"):
-        encode_request(request)
-
-
-def test_encode_batch__nested_metadata_has_nan__raises_value_error() -> None:
-    # Arrange
-    good = InsertRequest(id="a", vector=[1.0])
-    bad = InsertRequest(id="b", vector=[1.0], metadata={"s": [1.0, float("nan")]})
-
-    # Act / Assert
-    with pytest.raises(ValueError, match="metadata or filter contains NaN"):
-        encode_batch([good, bad])
-
-
-def test_encode_request__metadata_has_none__is_not_mistaken_for_nan() -> None:
+def test_encode_request__metadata_has_none__writes_null() -> None:
     # Arrange
     request = InsertRequest(id="a", vector=[1.0], metadata={"note": None})
 

@@ -9,7 +9,7 @@ from govec.exceptions import (
     GoVecConnectionError,
     GoVecTimeoutError,
 )
-from govec.models import InsertRequest, SearchRequest, SparseVector
+from govec.models import SearchRequest, SparseVector
 from govec.transport.json_codec import encode_request
 from govec.transport.rest import RESTTransport
 
@@ -369,24 +369,6 @@ def test_search__request__sends_the_encoded_body_as_json(
     # Assert
     assert sent[0].content == encode_request(request)
     assert sent[0].headers["content-type"] == "application/json"
-
-
-def test_insert_batch__a_record_has_nan__raises_value_error_and_sends_nothing(
-    rest_transport: BuildTransport,
-) -> None:
-    # Arrange
-    sent: list[httpx.Request] = []
-    transport = rest_transport(_capture(sent, {"inserted_count": 0}))
-    records = [
-        InsertRequest(id="a", vector=[1.0]),
-        InsertRequest(id="b", vector=[float("nan")]),
-    ]
-
-    # Act / Assert
-    with pytest.raises(ValueError, match="vector contains NaN or infinity"):
-        transport.insert_batch(records)
-
-    assert sent == []
 
 
 def _info_payload(version: str) -> dict[str, object]:
